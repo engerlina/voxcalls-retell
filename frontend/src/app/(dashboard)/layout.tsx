@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
@@ -52,10 +53,16 @@ export default function DashboardLayout({
       <aside className="fixed inset-y-0 left-0 z-50 w-64 border-r bg-white">
         <div className="flex h-full flex-col">
           {/* Logo */}
-          <div className="flex h-16 items-center gap-2 border-b px-6">
-            <div className="h-8 w-8 rounded-lg bg-primary" />
+          <Link href="/dashboard" className="flex h-16 items-center gap-2 border-b px-6">
+            <Image
+              src="/android-chrome-192x192.png"
+              alt="VoxCalls"
+              width={32}
+              height={32}
+              className="rounded-lg"
+            />
             <span className="text-xl font-bold">VoxCalls</span>
-          </div>
+          </Link>
 
           {/* Navigation */}
           <nav className="flex-1 space-y-1 px-3 py-4">

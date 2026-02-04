@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 
 export default function HomePage() {
@@ -7,10 +8,16 @@ export default function HomePage() {
       {/* Navigation */}
       <nav className="container mx-auto px-4 py-6">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-primary" />
+          <Link href="/" className="flex items-center gap-2">
+            <Image
+              src="/android-chrome-192x192.png"
+              alt="VoxCalls"
+              width={32}
+              height={32}
+              className="rounded-lg"
+            />
             <span className="text-xl font-bold text-foreground">VoxCalls</span>
-          </div>
+          </Link>
           <div className="flex items-center gap-4">
             <Link href="/login">
               <Button variant="ghost">Sign In</Button>
@@ -71,10 +78,16 @@ export default function HomePage() {
       <footer className="border-t bg-white">
         <div className="container mx-auto px-4 py-8">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="h-6 w-6 rounded bg-primary" />
+            <Link href="/" className="flex items-center gap-2">
+              <Image
+                src="/android-chrome-192x192.png"
+                alt="VoxCalls"
+                width={24}
+                height={24}
+                className="rounded"
+              />
               <span className="font-semibold text-foreground">VoxCalls</span>
-            </div>
+            </Link>
             <p className="text-sm text-muted-foreground">
               &copy; 2024 VoxCalls. All rights reserved.
             </p>

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,10 +42,16 @@ export default function LoginPage() {
   return (
     <Card>
       <CardHeader className="text-center">
-        <div className="mx-auto mb-4 flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-primary" />
+        <Link href="/" className="mx-auto mb-4 flex items-center gap-2">
+          <Image
+            src="/android-chrome-192x192.png"
+            alt="VoxCalls"
+            width={32}
+            height={32}
+            className="rounded-lg"
+          />
           <span className="text-xl font-bold">VoxCalls</span>
-        </div>
+        </Link>
         <CardTitle>Welcome back</CardTitle>
         <CardDescription>Sign in to your account to continue</CardDescription>
       </CardHeader>
