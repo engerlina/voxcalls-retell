@@ -1,0 +1,69 @@
+# =============================================================================
+# VoxCalls Root .gitignore
+# =============================================================================
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# =============================================================================
+# Backend (Python/FastAPI)
+# =============================================================================
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+backend/venv/
+backend/.venv/
+venv/
+.venv/
+
+# Distribution / packaging
+*.egg-info/
+dist/
+build/
+
+# Unit test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Alembic
+backend/alembic/versions/*.pyc
+
+# =============================================================================
+# Frontend (Next.js)
+# =============================================================================
+
+# Dependencies
+frontend/node_modules/
+node_modules/
+
+# Next.js build
+frontend/.next/
+frontend/out/
+
+# Vercel
+.vercel
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# TypeScript
+*.tsbuildinfo

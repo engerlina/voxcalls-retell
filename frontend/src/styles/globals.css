@@ -1,0 +1,99 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* VoxCalls Color Palette */
+    --background: 0 0% 100%;
+    --foreground: 234 43% 14%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 234 43% 14%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 234 43% 14%;
+
+    /* Purple accent #724a9e */
+    --primary: 269 36% 46%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Light gray #f8f9fa */
+    --secondary: 210 20% 98%;
+    --secondary-foreground: 234 43% 14%;
+
+    --muted: 210 20% 98%;
+    --muted-foreground: 215 16% 47%;
+
+    --accent: 269 36% 46%;
+    --accent-foreground: 0 0% 100%;
+
+    /* Rose #f43f5e */
+    --destructive: 347 77% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 269 36% 46%;
+
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 234 43% 14%;
+    --foreground: 0 0% 98%;
+
+    --card: 234 43% 18%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 234 43% 18%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 269 50% 60%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 234 30% 22%;
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 234 30% 22%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 269 50% 60%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 347 77% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 234 30% 26%;
+    --input: 234 30% 26%;
+    --ring: 269 50% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(var(--secondary));
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground));
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--primary));
+}
