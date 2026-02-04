@@ -53,6 +53,7 @@ class Settings(BaseSettings):
     # CORS - includes both local and production frontend URLs
     CORS_ORIGINS: List[str] = [
         "http://localhost:3000",
+        "http://localhost:3001",
         "https://frontend-six-pi-54.vercel.app",
     ]
 
