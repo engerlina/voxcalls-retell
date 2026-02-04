@@ -27,11 +27,11 @@ async def init_super_admin():
             # Create super admin user
             super_admin = User(
                 email=settings.SUPER_ADMIN_EMAIL,
-                hashed_password=get_password_hash(settings.SUPER_ADMIN_PASSWORD),
-                full_name="Super Admin",
+                password_hash=get_password_hash(settings.SUPER_ADMIN_PASSWORD),
+                name="Super Admin",
                 role="super_admin",
                 tenant_id=None,  # Super admin has no tenant
-                is_active=True,
+                status="active",
             )
             db.add(super_admin)
             await db.commit()
