@@ -21,6 +21,9 @@ async_session_maker = async_sessionmaker(
     autoflush=False,
 )
 
+# Alias for convenience
+AsyncSessionLocal = async_session_maker
+
 
 async def init_db() -> None:
     """Initialize database tables."""
