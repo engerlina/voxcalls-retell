@@ -50,8 +50,11 @@ class Settings(BaseSettings):
     SUPER_ADMIN_EMAIL: str = "admin@voxcalls.com"
     SUPER_ADMIN_PASSWORD: str = "change-this-password"
 
-    # CORS
-    CORS_ORIGINS: List[str] = ["http://localhost:3000"]
+    # CORS - includes both local and production frontend URLs
+    CORS_ORIGINS: List[str] = [
+        "http://localhost:3000",
+        "https://frontend-six-pi-54.vercel.app",
+    ]
 
     @property
     def is_production(self) -> bool:
