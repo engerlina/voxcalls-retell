@@ -338,6 +338,18 @@ function UsersSection({
                         variant="ghost"
                         size="sm"
                         onClick={async () => {
+                          await navigator.clipboard.writeText(invitation.magic_link);
+                          setCopied(true);
+                          setRegeneratedLink({ id: invitation.id, link: invitation.magic_link });
+                          setTimeout(() => setCopied(false), 2000);
+                        }}
+                      >
+                        Copy Link
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={async () => {
                           setRegeneratingId(invitation.id);
                           try {
                             const updated = await onRegenerateInvitation(invitation.id);
@@ -348,7 +360,7 @@ function UsersSection({
                         }}
                         disabled={regeneratingId === invitation.id}
                       >
-                        {regeneratingId === invitation.id ? "..." : "Copy Link"}
+                        {regeneratingId === invitation.id ? "..." : "Regenerate"}
                       </Button>
                       <Button
                         variant="ghost"
