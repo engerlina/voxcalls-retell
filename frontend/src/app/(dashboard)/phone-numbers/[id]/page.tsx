@@ -19,8 +19,8 @@ interface PhoneNumber {
   phone_number: string;
   country_code: string | null;
   number_type: string | null;
-  twilio_sid: string;
-  elevenlabs_phone_id: string | null;
+  retell_phone_id: string | null;
+  sip_trunk_uri: string | null;
   tenant_id: string | null;
   assigned_user_id: string | null;
   assigned_agent_id: string | null;
@@ -272,13 +272,15 @@ export default function PhoneNumberDetailPage() {
           <CardContent>
             <div className="grid gap-4 md:grid-cols-2">
               <div>
-                <label className="text-sm text-muted-foreground">Twilio SID</label>
-                <p className="font-mono text-sm break-all">{phoneNumber.twilio_sid}</p>
+                <label className="text-sm text-muted-foreground">Retell Phone ID</label>
+                <p className="font-mono text-sm break-all">
+                  {phoneNumber.retell_phone_id || "Not linked"}
+                </p>
               </div>
               <div>
-                <label className="text-sm text-muted-foreground">ElevenLabs Phone ID</label>
+                <label className="text-sm text-muted-foreground">SIP Trunk URI</label>
                 <p className="font-mono text-sm break-all">
-                  {phoneNumber.elevenlabs_phone_id || "Not linked"}
+                  {phoneNumber.sip_trunk_uri || "Not configured"}
                 </p>
               </div>
             </div>

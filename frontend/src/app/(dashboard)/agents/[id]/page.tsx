@@ -453,7 +453,7 @@ export default function AgentConfigPage() {
                 <div>
                   <h4 className="text-sm font-medium">Voices</h4>
                   <p className="text-xs text-muted-foreground">
-                    Select the ElevenLabs voices you want to use for the agent.
+                    Select the voices you want to use for the agent.
                   </p>
                 </div>
                 <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -751,9 +751,9 @@ export default function AgentConfigPage() {
                 </p>
               </div>
               <div>
-                <span className="text-muted-foreground">ElevenLabs ID</span>
+                <span className="text-muted-foreground">Retell Agent ID</span>
                 <p className="font-mono text-xs">
-                  {agent.elevenlabs_agent_id || "Not connected"}
+                  {agent.retell_agent_id || "Not connected"}
                 </p>
               </div>
               <div>
