@@ -58,6 +58,9 @@ async def init_super_admin():
             await db.commit()
             print(f"Created super admin user: {settings.SUPER_ADMIN_EMAIL}")
         else:
+            # Update password in case it changed
+            existing_user.password_hash = get_password_hash(settings.SUPER_ADMIN_PASSWORD)
+            await db.commit()
             print(f"Super admin already exists: {settings.SUPER_ADMIN_EMAIL}")
 
 
