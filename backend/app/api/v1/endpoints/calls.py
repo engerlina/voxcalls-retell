@@ -71,6 +71,15 @@ async def list_calls(
             conversations = response.get("conversations", [])
 
             for conv in conversations:
+                # Get duration - prefer metadata.call_duration_secs, fall back to timestamp calculation
+                metadata = conv.get("metadata", {}) or {}
+                duration = metadata.get("call_duration_secs")
+                if duration is None:
+                    duration = _calculate_duration(
+                        conv.get("start_time_unix_secs"),
+                        conv.get("end_time_unix_secs"),
+                    )
+
                 # Map ElevenLabs conversation to our response format
                 all_conversations.append(
                     ElevenLabsConversationResponse(
@@ -80,10 +89,7 @@ async def list_calls(
                         status=conv.get("status", "unknown"),
                         start_time=conv.get("start_time_unix_secs"),
                         end_time=conv.get("end_time_unix_secs"),
-                        duration_seconds=_calculate_duration(
-                            conv.get("start_time_unix_secs"),
-                            conv.get("end_time_unix_secs"),
-                        ),
+                        duration_seconds=duration,
                         message_count=conv.get("message_count"),
                         call_successful=conv.get("analysis", {}).get("call_successful") if conv.get("analysis") else None,
                     )
