@@ -49,3 +49,21 @@ class RefreshRequest(BaseModel):
     """Token refresh request body."""
 
     refresh_token: str
+
+
+class InvitationValidation(BaseModel):
+    """Invitation validation response for magic link."""
+
+    email: str
+    tenant_name: str
+    tenant_id: str
+    role: str
+    expires_at: str
+    is_valid: bool
+
+
+class AcceptInvitationRequest(BaseModel):
+    """Accept invitation request body."""
+
+    name: str
+    password: str

@@ -10,6 +10,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { api } from "@/lib/api";
+import { useAuthStore } from "@/lib/store";
+import { CountryDisplay } from "@/components/ui/country-display";
 
 interface PhoneNumber {
   id: string;
@@ -22,6 +24,8 @@ interface PhoneNumber {
 }
 
 export default function PhoneNumbersPage() {
+  const { user } = useAuthStore();
+  const isAdmin = user?.role === "admin" || user?.role === "super_admin";
   const [phoneNumbers, setPhoneNumbers] = useState<PhoneNumber[]>([]);
   const [availableNumbers, setAvailableNumbers] = useState<PhoneNumber[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -84,7 +88,11 @@ export default function PhoneNumbersPage() {
             Manage your voice-enabled phone numbers
           </p>
         </div>
-        <Button onClick={() => setShowClaimModal(true)}>
+        <Button
+          onClick={() => setShowClaimModal(true)}
+          disabled={!isAdmin}
+          title={!isAdmin ? "Only admins can claim numbers" : undefined}
+        >
           <PlusIcon className="mr-2 h-4 w-4" />
           Claim Number
         </Button>
@@ -111,7 +119,11 @@ export default function PhoneNumbersPage() {
             <p className="mb-4 text-center text-muted-foreground">
               Claim a phone number to enable voice calls
             </p>
-            <Button onClick={() => setShowClaimModal(true)}>
+            <Button
+              onClick={() => setShowClaimModal(true)}
+              disabled={!isAdmin}
+              title={!isAdmin ? "Only admins can claim numbers" : undefined}
+            >
               Claim Number
             </Button>
           </CardContent>
@@ -123,6 +135,7 @@ export default function PhoneNumbersPage() {
               key={number.id}
               phoneNumber={number}
               onRelease={() => handleReleaseNumber(number.id)}
+              isAdmin={isAdmin}
             />
           ))}
         </div>
@@ -152,8 +165,14 @@ export default function PhoneNumbersPage() {
                     >
                       <div>
                         <div className="font-mono">{number.phone_number}</div>
-                        <div className="text-sm text-muted-foreground">
-                          {number.number_type} • {number.country_code}
+                        <div className="text-sm text-muted-foreground flex items-center gap-1">
+                          {number.number_type}
+                          {number.country_code && (
+                            <>
+                              <span className="mx-1">•</span>
+                              <CountryDisplay countryCode={number.country_code} size="sm" />
+                            </>
+                          )}
                         </div>
                       </div>
                       <Button
@@ -182,9 +201,11 @@ export default function PhoneNumbersPage() {
 function PhoneNumberCard({
   phoneNumber,
   onRelease,
+  isAdmin,
 }: {
   phoneNumber: PhoneNumber;
   onRelease: () => void;
+  isAdmin: boolean;
 }) {
   return (
     <Card>
@@ -194,8 +215,14 @@ function PhoneNumberCard({
             <CardTitle className="font-mono text-lg">
               {phoneNumber.phone_number}
             </CardTitle>
-            <CardDescription>
-              {phoneNumber.number_type} • {phoneNumber.country_code}
+            <CardDescription className="flex items-center gap-1">
+              {phoneNumber.number_type}
+              {phoneNumber.country_code && (
+                <>
+                  <span className="mx-1">•</span>
+                  <CountryDisplay countryCode={phoneNumber.country_code} size="sm" />
+                </>
+              )}
             </CardDescription>
           </div>
           <span
@@ -225,6 +252,8 @@ function PhoneNumberCard({
             size="sm"
             className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
             onClick={onRelease}
+            disabled={!isAdmin}
+            title={!isAdmin ? "Only admins can release numbers" : undefined}
           >
             Release
           </Button>

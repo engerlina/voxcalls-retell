@@ -49,3 +49,21 @@ class CallDetailResponse(CallResponse):
 
     transcripts: list[CallTranscriptResponse]
     agent_name: str | None = None
+
+
+class ElevenLabsConversationResponse(BaseModel):
+    """
+    Conversation response from ElevenLabs API.
+
+    This is the response format when listing calls directly from ElevenLabs.
+    """
+
+    conversation_id: str
+    agent_id: str
+    agent_name: str
+    status: str
+    start_time: int | None  # Unix timestamp
+    end_time: int | None  # Unix timestamp
+    duration_seconds: int | None
+    message_count: int | None
+    call_successful: bool | None

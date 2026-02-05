@@ -31,6 +31,7 @@ class DocumentResponse(DocumentBase):
     id: UUID
     tenant_id: UUID
     user_id: UUID
+    user_name: str | None = None  # Added for display
     elevenlabs_doc_id: str | None
     source_type: str
     source_url: str | None

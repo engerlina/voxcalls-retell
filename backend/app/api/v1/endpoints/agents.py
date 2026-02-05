@@ -1,8 +1,10 @@
 """
 Agent management endpoints.
 """
+import logging
 from uuid import UUID
 
+import httpx
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
 
@@ -10,6 +12,8 @@ from app.core.deps import DbSession, CurrentUser, CurrentAdmin
 from app.db import models
 from app.schemas.agent import AgentCreate, AgentUpdate, AgentResponse
 from app.services.elevenlabs import ElevenLabsService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -87,9 +91,19 @@ async def create_agent(
             llm_model=agent.llm_model,
             language=agent.language,
         )
-        db_agent.elevenlabs_agent_id = elevenlabs_agent["agent_id"]
+        # ElevenLabs returns either "agent_id" or "id" depending on API version
+        db_agent.elevenlabs_agent_id = elevenlabs_agent.get("agent_id") or elevenlabs_agent.get("id")
+    except httpx.HTTPStatusError as e:
+        await db.rollback()
+        error_detail = e.response.text if e.response else str(e)
+        logger.error(f"ElevenLabs API error: {e.response.status_code} - {error_detail}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create agent in ElevenLabs ({e.response.status_code}): {error_detail}",
+        )
     except Exception as e:
         await db.rollback()
+        logger.error(f"ElevenLabs error: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to create agent in ElevenLabs: {str(e)}",

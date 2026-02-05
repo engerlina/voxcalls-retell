@@ -1,14 +1,17 @@
 """
 User management endpoints.
 """
+import secrets
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
 
+from app.core.config import settings
 from app.core.deps import DbSession, CurrentUser, CurrentAdmin
 from app.db import models
-from app.schemas.user import UserResponse, UserUpdate, InvitationCreate, InvitationResponse
+from app.schemas.user import UserResponse, UserUpdate, InvitationCreate, AdminInvitationResponse
 
 router = APIRouter()
 
@@ -192,20 +195,17 @@ async def change_user_role(
 
 
 # Invitation endpoints
-@router.post("/invite", response_model=InvitationResponse)
+@router.post("/invite", response_model=AdminInvitationResponse)
 async def invite_user(
     invitation: InvitationCreate,
     current_user: CurrentAdmin,
     db: DbSession,
-) -> InvitationResponse:
+) -> AdminInvitationResponse:
     """
     Invite a user to the tenant.
 
-    Requires admin role.
+    Requires admin role. Returns invitation with magic link.
     """
-    import secrets
-    from datetime import datetime, timedelta, timezone
-
     # Check if email already exists
     result = await db.execute(
         select(models.User).where(models.User.email == invitation.email)
@@ -230,12 +230,20 @@ async def invite_user(
             detail="Invitation already pending",
         )
 
+    # Validate role (only admin or user allowed)
+    if invitation.role not in ["admin", "user"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Role must be 'admin' or 'user'",
+        )
+
     # Create invitation
+    token = secrets.token_urlsafe(32)
     invite = models.Invitation(
         tenant_id=current_user.tenant_id,
         email=invitation.email,
         role=invitation.role,
-        token=secrets.token_urlsafe(32),
+        token=token,
         invited_by=current_user.id,
         expires_at=datetime.now(timezone.utc) + timedelta(days=7),
     )
@@ -243,20 +251,30 @@ async def invite_user(
     await db.commit()
     await db.refresh(invite)
 
-    # TODO: Send invitation email
+    # Generate magic link
+    magic_link = f"{settings.FRONTEND_URL}/invite/{token}"
 
-    return InvitationResponse.model_validate(invite)
+    return AdminInvitationResponse(
+        id=invite.id,
+        tenant_id=invite.tenant_id,
+        email=invite.email,
+        role=invite.role,
+        expires_at=invite.expires_at,
+        accepted_at=invite.accepted_at,
+        created_at=invite.created_at,
+        magic_link=magic_link,
+    )
 
 
-@router.get("/invitations", response_model=list[InvitationResponse])
+@router.get("/invitations", response_model=list[AdminInvitationResponse])
 async def list_invitations(
     current_user: CurrentAdmin,
     db: DbSession,
-) -> list[InvitationResponse]:
+) -> list[AdminInvitationResponse]:
     """
-    List pending invitations.
+    List pending invitations for the tenant.
 
-    Requires admin role.
+    Requires admin role. Returns invitations with magic links.
     """
     result = await db.execute(
         select(models.Invitation).where(
@@ -265,4 +283,108 @@ async def list_invitations(
         )
     )
     invitations = result.scalars().all()
-    return [InvitationResponse.model_validate(i) for i in invitations]
+
+    responses = []
+    for inv in invitations:
+        magic_link = f"{settings.FRONTEND_URL}/invite/{inv.token}"
+        responses.append(AdminInvitationResponse(
+            id=inv.id,
+            tenant_id=inv.tenant_id,
+            email=inv.email,
+            role=inv.role,
+            expires_at=inv.expires_at,
+            accepted_at=inv.accepted_at,
+            created_at=inv.created_at,
+            magic_link=magic_link,
+        ))
+
+    return responses
+
+
+@router.post("/invitations/{invitation_id}/regenerate", response_model=AdminInvitationResponse)
+async def regenerate_invitation(
+    invitation_id: UUID,
+    current_user: CurrentAdmin,
+    db: DbSession,
+) -> AdminInvitationResponse:
+    """
+    Regenerate an invitation token with a new 7-day expiry.
+
+    Requires admin role. Only works for pending invitations within the tenant.
+    """
+    result = await db.execute(
+        select(models.Invitation).where(
+            models.Invitation.id == invitation_id,
+            models.Invitation.tenant_id == current_user.tenant_id,
+        )
+    )
+    invitation = result.scalar_one_or_none()
+
+    if not invitation:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Invitation not found",
+        )
+
+    if invitation.accepted_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot regenerate an accepted invitation",
+        )
+
+    # Generate new token and expiry
+    invitation.token = secrets.token_urlsafe(32)
+    invitation.expires_at = datetime.now(timezone.utc) + timedelta(days=7)
+
+    await db.commit()
+    await db.refresh(invitation)
+
+    magic_link = f"{settings.FRONTEND_URL}/invite/{invitation.token}"
+
+    return AdminInvitationResponse(
+        id=invitation.id,
+        tenant_id=invitation.tenant_id,
+        email=invitation.email,
+        role=invitation.role,
+        expires_at=invitation.expires_at,
+        accepted_at=invitation.accepted_at,
+        created_at=invitation.created_at,
+        magic_link=magic_link,
+    )
+
+
+@router.delete("/invitations/{invitation_id}")
+async def delete_invitation(
+    invitation_id: UUID,
+    current_user: CurrentAdmin,
+    db: DbSession,
+) -> dict:
+    """
+    Delete a pending invitation.
+
+    Requires admin role. Only works for invitations within the tenant.
+    """
+    result = await db.execute(
+        select(models.Invitation).where(
+            models.Invitation.id == invitation_id,
+            models.Invitation.tenant_id == current_user.tenant_id,
+        )
+    )
+    invitation = result.scalar_one_or_none()
+
+    if not invitation:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Invitation not found",
+        )
+
+    if invitation.accepted_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot delete an accepted invitation",
+        )
+
+    await db.delete(invitation)
+    await db.commit()
+
+    return {"message": "Invitation deleted"}

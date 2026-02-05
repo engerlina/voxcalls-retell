@@ -15,7 +15,14 @@ from app.core.security import (
     decode_token,
 )
 from app.db import models
-from app.schemas.auth import Token, LoginRequest, RegisterRequest, RefreshRequest
+from app.schemas.auth import (
+    Token,
+    LoginRequest,
+    RegisterRequest,
+    RefreshRequest,
+    InvitationValidation,
+    AcceptInvitationRequest,
+)
 from app.schemas.user import UserResponse
 from app.schemas.tenant import TenantCreate
 
@@ -232,3 +239,168 @@ async def logout(
     await db.commit()
 
     return {"message": "Logged out successfully"}
+
+
+@router.get("/invite/{token}", response_model=InvitationValidation)
+async def validate_invitation(
+    token: str,
+    db: DbSession,
+) -> InvitationValidation:
+    """
+    Validate an invitation token and return invitation details.
+
+    This is a public endpoint - no authentication required.
+    """
+    # Find invitation by token
+    result = await db.execute(
+        select(models.Invitation).where(models.Invitation.token == token)
+    )
+    invitation = result.scalar_one_or_none()
+
+    if not invitation:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Invalid or expired invitation",
+        )
+
+    # Check if already accepted
+    if invitation.accepted_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invitation has already been used",
+        )
+
+    # Check if expired
+    now = datetime.now(timezone.utc)
+    expires_at = invitation.expires_at
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    if now > expires_at:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invitation has expired",
+        )
+
+    # Get tenant name
+    result = await db.execute(
+        select(models.Tenant).where(models.Tenant.id == invitation.tenant_id)
+    )
+    tenant = result.scalar_one_or_none()
+
+    if not tenant:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Tenant not found",
+        )
+
+    return InvitationValidation(
+        email=invitation.email,
+        tenant_name=tenant.name,
+        tenant_id=str(invitation.tenant_id),
+        role=invitation.role,
+        expires_at=invitation.expires_at.isoformat(),
+        is_valid=True,
+    )
+
+
+@router.post("/invite/{token}/accept", response_model=Token)
+async def accept_invitation(
+    token: str,
+    request: AcceptInvitationRequest,
+    db: DbSession,
+) -> Token:
+    """
+    Accept an invitation and create a new user account.
+
+    This is a public endpoint - no authentication required.
+    """
+    # Find invitation by token
+    result = await db.execute(
+        select(models.Invitation).where(models.Invitation.token == token)
+    )
+    invitation = result.scalar_one_or_none()
+
+    if not invitation:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Invalid or expired invitation",
+        )
+
+    # Check if already accepted
+    if invitation.accepted_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invitation has already been used",
+        )
+
+    # Check if expired
+    now = datetime.now(timezone.utc)
+    expires_at = invitation.expires_at
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    if now > expires_at:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invitation has expired",
+        )
+
+    # Check if email is already registered (race condition protection)
+    result = await db.execute(
+        select(models.User).where(models.User.email == invitation.email)
+    )
+    if result.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email already registered",
+        )
+
+    # Validate password length
+    if len(request.password) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be at least 8 characters",
+        )
+
+    # Create user
+    user = models.User(
+        tenant_id=invitation.tenant_id,
+        email=invitation.email,
+        password_hash=get_password_hash(request.password),
+        name=request.name,
+        role=invitation.role,
+        status="active",
+        email_verified=True,  # Invitation implies email ownership
+    )
+    db.add(user)
+
+    # Mark invitation as accepted
+    invitation.accepted_at = now
+
+    await db.commit()
+    await db.refresh(user)
+
+    # Update last login
+    user.last_login_at = now
+    await db.commit()
+
+    # Generate tokens
+    access_token = create_access_token(
+        subject=str(user.id),
+        tenant_id=str(user.tenant_id) if user.tenant_id else None,
+        role=user.role,
+    )
+    refresh_token = create_refresh_token(subject=str(user.id))
+
+    # Store refresh token
+    token_record = models.RefreshToken(
+        user_id=user.id,
+        token_hash=get_password_hash(refresh_token),
+        expires_at=now,  # Will be set by token creation
+    )
+    db.add(token_record)
+    await db.commit()
+
+    return Token(
+        access_token=access_token,
+        refresh_token=refresh_token,
+    )

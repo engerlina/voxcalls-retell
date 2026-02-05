@@ -1,10 +1,13 @@
 """
 ElevenLabs Conversational AI API service.
 """
+import logging
 import httpx
 from typing import Any
 
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class ElevenLabsService:
@@ -28,15 +31,23 @@ class ElevenLabsService:
         **kwargs,
     ) -> dict[str, Any]:
         """Make an HTTP request to the ElevenLabs API."""
+        url = f"{self.BASE_URL}{endpoint}"
+        logger.info(f"ElevenLabs API request: {method} {url}")
+
         async with httpx.AsyncClient() as client:
             response = await client.request(
                 method=method,
-                url=f"{self.BASE_URL}{endpoint}",
+                url=url,
                 headers=self.headers,
                 timeout=30.0,
                 **kwargs,
             )
-            response.raise_for_status()
+
+            if response.status_code >= 400:
+                error_text = response.text
+                logger.error(f"ElevenLabs API error: {response.status_code} - {error_text}")
+                response.raise_for_status()
+
             return response.json()
 
     # =========================================================================
@@ -54,6 +65,9 @@ class ElevenLabsService:
     ) -> dict[str, Any]:
         """
         Create a new conversational agent.
+
+        Valid LLM models include: gpt-4o-mini, gpt-4o, gemini-1.5-flash,
+        gemini-2.0-flash, claude-3-5-sonnet, etc.
         """
         payload = {
             "name": name,
@@ -68,7 +82,7 @@ class ElevenLabsService:
                 },
                 "tts": {
                     "voice_id": voice_id or "21m00Tcm4TlvDq8ikWAM",  # Rachel (default)
-                    "model_id": "eleven_turbo_v2_5",
+                    "model_id": "eleven_turbo_v2",
                 },
             },
         }
@@ -156,6 +170,18 @@ class ElevenLabsService:
         }
         return await self._request("POST", "/knowledge-base/url", json=payload)
 
+    # Allowed file types for ElevenLabs knowledge base
+    ALLOWED_FILE_TYPES = {
+        "pdf": "application/pdf",
+        "txt": "text/plain",
+        "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "html": "text/html",
+        "htm": "text/html",
+        "epub": "application/epub+zip",
+        "md": "text/markdown",
+        "markdown": "text/markdown",
+    }
+
     async def create_document_from_file(
         self,
         name: str,
@@ -163,15 +189,31 @@ class ElevenLabsService:
         file_name: str,
     ) -> dict[str, Any]:
         """Create a knowledge base document from file upload."""
+        # Determine content type based on file extension
+        extension = file_name.lower().split(".")[-1] if "." in file_name else ""
+
+        if extension not in self.ALLOWED_FILE_TYPES:
+            allowed_extensions = ", ".join(self.ALLOWED_FILE_TYPES.keys())
+            raise ValueError(
+                f"Invalid file type '.{extension}'. Allowed types: {allowed_extensions}"
+            )
+
+        content_type = self.ALLOWED_FILE_TYPES[extension]
+
         # File upload uses multipart form
+        url = f"{self.BASE_URL}/knowledge-base/file"
+        logger.info(f"Uploading file to ElevenLabs: {url} (filename={file_name}, content_type={content_type}, size={len(file_content)})")
+
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                f"{self.BASE_URL}/knowledge-base/file",
+                url,
                 headers={"xi-api-key": self.api_key},
-                files={"file": (file_name, file_content)},
+                files={"file": (file_name, file_content, content_type)},
                 data={"name": name},
                 timeout=60.0,
             )
+            if response.status_code >= 400:
+                logger.error(f"ElevenLabs file upload error: {response.status_code} - {response.text}")
             response.raise_for_status()
             return response.json()
 
@@ -236,9 +278,15 @@ class ElevenLabsService:
     async def assign_phone_to_agent(
         self,
         phone_id: str,
-        agent_id: str,
+        agent_id: str | None,
     ) -> dict[str, Any]:
-        """Assign a phone number to an agent."""
+        """
+        Assign a phone number to an agent, or unassign it.
+
+        Args:
+            phone_id: The ElevenLabs phone number ID
+            agent_id: The ElevenLabs agent ID, or None to unassign
+        """
         payload = {"agent_id": agent_id}
         return await self._request("PATCH", f"/phone-numbers/{phone_id}", json=payload)
 

@@ -73,20 +73,81 @@ class TwilioService:
     async def purchase_number(self, phone_number: str) -> dict[str, Any]:
         """
         Purchase a phone number from Twilio.
+
+        For countries that require regulatory addresses (e.g., Australia),
+        the TWILIO_ADDRESS_SID setting must be configured.
         """
         try:
+            # Build purchase params
+            purchase_params = {"phone_number": phone_number}
+
+            # Add address if configured (required for some countries like AU)
+            if settings.TWILIO_ADDRESS_SID:
+                purchase_params["address_sid"] = settings.TWILIO_ADDRESS_SID
+
             incoming_phone_number = self.client.incoming_phone_numbers.create(
-                phone_number=phone_number
+                **purchase_params
             )
 
             return {
                 "sid": incoming_phone_number.sid,
                 "phone_number": incoming_phone_number.phone_number,
                 "friendly_name": incoming_phone_number.friendly_name,
-                "country_code": incoming_phone_number.phone_number[:2],
             }
         except TwilioRestException as e:
             raise Exception(f"Failed to purchase number: {e.msg}")
+
+    async def get_phone_number_pricing(self, country_code: str = "AU") -> dict[str, Any]:
+        """
+        Get phone number pricing for a country.
+        Returns monthly and per-minute pricing by number type.
+        """
+        try:
+            pricing = self.client.pricing.v1.phone_numbers.countries(country_code).fetch()
+
+            result = {
+                "country": pricing.country,
+                "iso_country": pricing.iso_country,
+                "price_unit": pricing.price_unit,
+                "phone_number_prices": [],
+            }
+
+            for price in pricing.phone_number_prices:
+                result["phone_number_prices"].append({
+                    "number_type": price.get("number_type", "unknown"),
+                    "base_price": price.get("base_price"),
+                    "current_price": price.get("current_price"),
+                })
+
+            return result
+        except Exception:
+            # Return empty pricing if not available
+            return {
+                "country": country_code,
+                "iso_country": country_code,
+                "price_unit": "USD",
+                "phone_number_prices": [],
+            }
+
+    async def get_addresses(self) -> list[dict[str, Any]]:
+        """
+        List all addresses in the Twilio account.
+        Useful for finding the address SID to configure.
+        """
+        addresses = self.client.addresses.list()
+        return [
+            {
+                "sid": addr.sid,
+                "friendly_name": addr.friendly_name,
+                "customer_name": addr.customer_name,
+                "street": addr.street,
+                "city": addr.city,
+                "region": addr.region,
+                "postal_code": addr.postal_code,
+                "iso_country": addr.iso_country,
+            }
+            for addr in addresses
+        ]
 
     async def get_number(self, sid: str) -> dict[str, Any]:
         """

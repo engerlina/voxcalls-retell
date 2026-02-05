@@ -1,17 +1,38 @@
 """
 VoxCalls API - Main FastAPI Application.
 """
+import logging
+import traceback
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import select
+from fastapi.responses import JSONResponse
+from sqlalchemy import select, text
 
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 from app.core.security import get_password_hash
 from app.db.session import engine, AsyncSessionLocal
 from app.db.models import Base, User
 from app.api.v1.router import api_router
+
+
+async def add_missing_columns():
+    """Add any missing columns to existing tables."""
+    async with engine.begin() as conn:
+        # Check if tools_config column exists in agents table
+        result = await conn.execute(text("""
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'agents' AND column_name = 'tools_config'
+        """))
+        if not result.fetchone():
+            print("Adding tools_config column to agents table...")
+            await conn.execute(text("""
+                ALTER TABLE agents ADD COLUMN tools_config JSONB DEFAULT '{}'::jsonb
+            """))
+            print("Added tools_config column")
 
 
 async def init_super_admin():
@@ -48,6 +69,9 @@ async def lifespan(app: FastAPI):
         # Create tables if they don't exist
         await conn.run_sync(Base.metadata.create_all)
 
+    # Add any missing columns to existing tables
+    await add_missing_columns()
+
     # Initialize super admin
     await init_super_admin()
 
@@ -74,6 +98,19 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# Global exception handler to ensure errors return proper JSON responses
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Handle any unhandled exceptions with a proper JSON response."""
+    # Log the full traceback
+    logger.error(f"Unhandled exception on {request.method} {request.url.path}:")
+    logger.error(traceback.format_exc())
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"Internal server error: {str(exc)}"},
+    )
 
 
 # Include API router

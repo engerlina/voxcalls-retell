@@ -10,11 +10,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { useAgentStore, Agent } from "@/lib/store";
+import { useAgentStore, useAuthStore, Agent } from "@/lib/store";
 
 export default function AgentsPage() {
   const { agents, isLoading, fetchAgents, createAgent, deleteAgent } =
     useAgentStore();
+  const { user } = useAuthStore();
+  const isAdmin = user?.role === "admin" || user?.role === "super_admin";
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newAgentName, setNewAgentName] = useState("");
   const [newAgentPrompt, setNewAgentPrompt] = useState("");
@@ -58,7 +60,11 @@ export default function AgentsPage() {
             Manage your AI voice agents
           </p>
         </div>
-        <Button onClick={() => setShowCreateModal(true)}>
+        <Button
+          onClick={() => setShowCreateModal(true)}
+          disabled={!isAdmin}
+          title={!isAdmin ? "Only admins can create agents" : undefined}
+        >
           <PlusIcon className="mr-2 h-4 w-4" />
           Create Agent
         </Button>
@@ -85,7 +91,11 @@ export default function AgentsPage() {
             <p className="mb-4 text-center text-muted-foreground">
               Create your first AI voice agent to get started
             </p>
-            <Button onClick={() => setShowCreateModal(true)}>
+            <Button
+              onClick={() => setShowCreateModal(true)}
+              disabled={!isAdmin}
+              title={!isAdmin ? "Only admins can create agents" : undefined}
+            >
               Create Agent
             </Button>
           </CardContent>
@@ -97,6 +107,7 @@ export default function AgentsPage() {
               key={agent.id}
               agent={agent}
               onDelete={() => handleDeleteAgent(agent.id)}
+              isAdmin={isAdmin}
             />
           ))}
         </div>
@@ -162,9 +173,11 @@ export default function AgentsPage() {
 function AgentCard({
   agent,
   onDelete,
+  isAdmin,
 }: {
   agent: Agent;
   onDelete: () => void;
+  isAdmin: boolean;
 }) {
   return (
     <Card>
@@ -186,7 +199,13 @@ function AgentCard({
               )}
             </CardDescription>
           </div>
-          <Button variant="ghost" size="icon" onClick={onDelete}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onDelete}
+            disabled={!isAdmin}
+            title={!isAdmin ? "Only admins can delete agents" : undefined}
+          >
             <TrashIcon className="h-4 w-4 text-destructive" />
           </Button>
         </div>

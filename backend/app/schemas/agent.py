@@ -54,6 +54,7 @@ class AgentResponse(AgentBase):
     min_silence_duration: float
     temperature: float
     knowledge_base_ids: list[str]
+    tools_config: dict | None
     status: str
     created_at: datetime
     updated_at: datetime

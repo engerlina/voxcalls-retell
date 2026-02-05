@@ -1,17 +1,29 @@
 """
 Document (Knowledge Base) endpoints.
 """
+import logging
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status, UploadFile, File, Form
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from app.core.deps import DbSession, CurrentUser
+
+logger = logging.getLogger(__name__)
 from app.db import models
 from app.schemas.document import DocumentCreate, DocumentCreateFromUrl, DocumentResponse
 from app.services.elevenlabs import ElevenLabsService
 
 router = APIRouter()
+
+
+def _document_to_response(doc: models.Document) -> DocumentResponse:
+    """Convert document model to response with user name."""
+    response = DocumentResponse.model_validate(doc)
+    if doc.user:
+        response.user_name = doc.user.name
+    return response
 
 
 @router.get("", response_model=list[DocumentResponse])
@@ -24,8 +36,10 @@ async def list_documents(
 
     Admins see all tenant documents. Users see only their documents.
     """
-    query = select(models.Document).where(
-        models.Document.tenant_id == current_user.tenant_id
+    query = (
+        select(models.Document)
+        .options(selectinload(models.Document.user))
+        .where(models.Document.tenant_id == current_user.tenant_id)
     )
 
     if current_user.role == "user":
@@ -33,7 +47,7 @@ async def list_documents(
 
     result = await db.execute(query)
     documents = result.scalars().all()
-    return [DocumentResponse.model_validate(d) for d in documents]
+    return [_document_to_response(d) for d in documents]
 
 
 @router.post("/text", response_model=DocumentResponse)
@@ -71,7 +85,9 @@ async def create_document_from_text(
     await db.commit()
     await db.refresh(db_document)
 
-    return DocumentResponse.model_validate(db_document)
+    response = DocumentResponse.model_validate(db_document)
+    response.user_name = current_user.name
+    return response
 
 
 @router.post("/url", response_model=DocumentResponse)
@@ -110,15 +126,17 @@ async def create_document_from_url(
     await db.commit()
     await db.refresh(db_document)
 
-    return DocumentResponse.model_validate(db_document)
+    response = DocumentResponse.model_validate(db_document)
+    response.user_name = current_user.name
+    return response
 
 
 @router.post("/file", response_model=DocumentResponse)
 async def create_document_from_file(
+    current_user: CurrentUser,
+    db: DbSession,
     file: UploadFile = File(...),
     name: str = Form(None),
-    current_user: CurrentUser = None,
-    db: DbSession = None,
 ) -> DocumentResponse:
     """
     Create document from uploaded file.
@@ -132,12 +150,21 @@ async def create_document_from_file(
     # Create in ElevenLabs
     try:
         elevenlabs = ElevenLabsService()
+        logger.info(f"Uploading file to ElevenLabs: {file.filename} ({len(content)} bytes)")
         elevenlabs_doc = await elevenlabs.create_document_from_file(
             name=doc_name,
             file_content=content,
             file_name=file.filename,
         )
+        logger.info(f"ElevenLabs response: {elevenlabs_doc}")
+    except ValueError as e:
+        # Invalid file type
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
     except Exception as e:
+        logger.exception(f"Failed to create document in ElevenLabs: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to create document in ElevenLabs: {str(e)}",
@@ -158,7 +185,9 @@ async def create_document_from_file(
     await db.commit()
     await db.refresh(db_document)
 
-    return DocumentResponse.model_validate(db_document)
+    response = DocumentResponse.model_validate(db_document)
+    response.user_name = current_user.name
+    return response
 
 
 @router.get("/{document_id}", response_model=DocumentResponse)
@@ -171,7 +200,9 @@ async def get_document(
     Get document by ID.
     """
     result = await db.execute(
-        select(models.Document).where(
+        select(models.Document)
+        .options(selectinload(models.Document.user))
+        .where(
             models.Document.id == document_id,
             models.Document.tenant_id == current_user.tenant_id,
         )
@@ -191,7 +222,7 @@ async def get_document(
             detail="Access denied",
         )
 
-    return DocumentResponse.model_validate(document)
+    return _document_to_response(document)
 
 
 @router.delete("/{document_id}")

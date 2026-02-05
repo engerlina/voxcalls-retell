@@ -31,6 +31,12 @@ class PhoneNumberClaim(BaseModel):
     agent_id: UUID | None = None
 
 
+class PhoneNumberAssignAgent(BaseModel):
+    """Assign agent to phone number request."""
+
+    agent_id: UUID | None = None  # None to unassign
+
+
 class PhoneNumberResponse(PhoneNumberBase):
     """Phone number response schema."""
 
@@ -67,3 +73,28 @@ class TwilioNumberResult(BaseModel):
     friendly_name: str
     country_code: str
     capabilities: dict
+
+
+class NumberTypePricing(BaseModel):
+    """Pricing for a number type."""
+
+    number_type: str
+    base_price: str | None = None
+    current_price: str | None = None
+
+
+class TwilioNumberBulkResult(BaseModel):
+    """Twilio available numbers grouped by type."""
+
+    local: list[TwilioNumberResult]
+    mobile: list[TwilioNumberResult]
+    toll_free: list[TwilioNumberResult]
+    pricing: dict[str, str | None] = {}  # number_type -> monthly price
+
+
+class PurchaseNumberRequest(BaseModel):
+    """Request to purchase a phone number."""
+
+    phone_number: str
+    number_type: str = "local"  # local, mobile, toll_free
+    country_code: str = "AU"  # ISO country code (AU, US, GB, etc.)

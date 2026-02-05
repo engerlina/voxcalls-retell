@@ -4,7 +4,7 @@ User schemas.
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, computed_field
 
 
 class UserBase(BaseModel):
@@ -28,6 +28,15 @@ class UserUpdate(BaseModel):
     settings: dict | None = None
 
 
+class AdminUserUpdate(BaseModel):
+    """Admin user update schema - allows more fields."""
+
+    name: str | None = None
+    role: str | None = None
+    status: str | None = None
+    tenant_id: UUID | None = None
+
+
 class UserResponse(UserBase):
     """User response schema."""
 
@@ -40,6 +49,12 @@ class UserResponse(UserBase):
     assigned_phone_number_id: UUID | None
     created_at: datetime
     last_login_at: datetime | None
+
+    @computed_field
+    @property
+    def full_name(self) -> str:
+        """Alias for name field for frontend compatibility."""
+        return self.name
 
     class Config:
         from_attributes = True
@@ -71,3 +86,17 @@ class InvitationResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class AdminInvitationCreate(BaseModel):
+    """Super admin invitation creation schema."""
+
+    tenant_id: UUID
+    email: EmailStr
+    role: str = "user"  # admin or user
+
+
+class AdminInvitationResponse(InvitationResponse):
+    """Super admin invitation response with magic link."""
+
+    magic_link: str

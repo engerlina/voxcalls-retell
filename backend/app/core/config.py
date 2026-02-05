@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     # Twilio (for API access to purchase/manage numbers)
     TWILIO_ACCOUNT_SID: str
     TWILIO_AUTH_TOKEN: str
+    TWILIO_ADDRESS_SID: str | None = None  # Required for purchasing numbers in some countries (e.g., AU)
 
     # Redis
     REDIS_URL: str | None = None
