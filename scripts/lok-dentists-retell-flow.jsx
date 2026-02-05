@@ -9,37 +9,27 @@ const flowNodes = [
     x: 400,
     y: 40,
     description:
-      "Greet the caller. Ask if they'd like to speak in English, Cantonese, or Mandarin. Default to English if no preference stated.",
+      "Greet the caller. Ask if they'd like to speak in English or Mandarin. Default to English if no preference stated. Note: Cantonese (zh-HK) is NOT supported by Retell - only zh-CN (Mandarin) is available.",
   },
   {
     id: "english_flow",
     label: "English Agent",
-    type: "agent_transfer",
+    type: "agent_swap",
     color: "#059669",
     x: 150,
     y: 160,
     description:
-      "Continue in English. Transfer to the English-speaking Lily agent with full conversation history.",
-  },
-  {
-    id: "cantonese_flow",
-    label: "Cantonese Agent",
-    type: "agent_transfer",
-    color: "#D97706",
-    x: 400,
-    y: 160,
-    description:
-      "Agent Transfer to Cantonese-configured Lily agent. Same logic, Cantonese voice & language.",
+      "Agent Swap to English-speaking Lily agent (language: en-AU) with full conversation history.",
   },
   {
     id: "mandarin_flow",
     label: "Mandarin Agent",
-    type: "agent_transfer",
+    type: "agent_swap",
     color: "#DC2626",
-    x: 650,
+    x: 400,
     y: 160,
     description:
-      "Agent Transfer to Mandarin-configured Lily agent. Same logic, Mandarin voice & language.",
+      "Agent Swap to Mandarin-configured Lily agent (language: zh-CN). Same logic, Mandarin voice & language.",
   },
   {
     id: "identify_intent",
@@ -54,7 +44,7 @@ const flowNodes = [
   {
     id: "emergency",
     label: "Emergency Escalation",
-    type: "call_transfer",
+    type: "transfer_call",
     color: "#DC2626",
     x: 650,
     y: 290,
@@ -103,7 +93,7 @@ const flowNodes = [
   {
     id: "renovation_check",
     label: "Renovation Period Check",
-    type: "logic_split",
+    type: "branch",
     color: "#F59E0B",
     x: 350,
     y: 600,
@@ -163,7 +153,7 @@ const flowNodes = [
   {
     id: "end_call",
     label: "End Call",
-    type: "ending",
+    type: "end",
     color: "#6B7280",
     x: 400,
     y: 1130,
@@ -173,9 +163,9 @@ const flowNodes = [
 
 const edges = [
   { from: "welcome", to: "english_flow", label: "English" },
-  { from: "welcome", to: "cantonese_flow", label: "Cantonese" },
   { from: "welcome", to: "mandarin_flow", label: "Mandarin" },
   { from: "english_flow", to: "identify_intent", label: "" },
+  { from: "mandarin_flow", to: "identify_intent", label: "" },
   { from: "identify_intent", to: "collect_name", label: "Book" },
   { from: "identify_intent", to: "clinic_info", label: "Question" },
   { from: "identify_intent", to: "emergency", label: "Emergency" },
@@ -196,20 +186,20 @@ const edges = [
 
 const nodeTypeLabels = {
   conversation: "Conversation",
-  agent_transfer: "Agent Transfer",
-  call_transfer: "Call Transfer",
+  agent_swap: "Agent Swap",
+  transfer_call: "Transfer Call",
   function: "Function",
-  logic_split: "Logic Split",
-  ending: "Ending",
+  branch: "Branch",
+  end: "End",
 };
 
 const nodeTypeIcons = {
   conversation: "#",
-  agent_transfer: "⇄",
+  agent_swap: "⇄",
   function: "⚙",
-  call_transfer: "☎",
-  logic_split: "⑂",
-  ending: "□",
+  transfer_call: "☎",
+  branch: "⑂",
+  end: "□",
 };
 
 const tabs = ["Flow Design", "API Code", "Node Details"];
@@ -221,24 +211,37 @@ const client = new Retell({
 });
 
 // -----------------------------------------------
+// IMPORTANT: Retell Supported Languages
+// -----------------------------------------------
+// Mandarin: zh-CN ✅ Supported
+// Cantonese: zh-HK ❌ NOT SUPPORTED by Retell
+//
+// Only English and Mandarin routing is possible.
+// For Cantonese speakers, you would need to:
+// 1. Use a Mandarin agent (some mutual intelligibility)
+// 2. Or use a human transfer for Cantonese calls
+// -----------------------------------------------
+
 // STEP 1: Create language-specific agents first
-// You need 3 agents: English, Cantonese, Mandarin
+// You need 2 agents: English and Mandarin
 // Each has the same conversation flow but different
 // voice/language settings.
-// -----------------------------------------------
 
 // STEP 2: Create the main routing conversation flow
 // This is the "front door" agent that detects language
 // and transfers to the appropriate agent.
 
 const routingFlow = await client.conversationFlow.create({
-  model_choice: { model: 'gpt-4.1', type: 'cascading' },
+  model_choice: { model: 'gpt-5', type: 'cascading' },
   start_speaker: 'agent',
   global_prompt: \`You are Lily, a friendly and efficient AI receptionist
 for Lok Dentists, a family-owned dental practice with locations
-in Chatswood and Sydney CBD. You speak English, Cantonese,
-and Mandarin. Your goal right now is to identify which language
-the caller prefers. Be warm but brief.\`,
+in Chatswood and Sydney CBD. You speak English and Mandarin.
+Your goal right now is to identify which language the caller
+prefers. Be warm but brief.
+
+Note: If caller requests Cantonese, apologize that we don't
+have Cantonese support yet and offer English or Mandarin.\`,
   nodes: [
     {
       id: 'welcome',
@@ -247,54 +250,90 @@ the caller prefers. Be warm but brief.\`,
         type: 'prompt',
         text: \`Greet the caller warmly: "Hello, thank you for calling
 Lok Dentists. This is Lily speaking. Would you prefer to
-continue in English, Cantonese, or Mandarin?"
+continue in English or Mandarin? 您好，请问您想用英文还是普通话继续？"
 
-If the caller responds in Cantonese or Mandarin, detect it
-and transition accordingly. If they speak English or don't
-specify, continue in English.\`
+If the caller responds in Mandarin, detect it and transition
+accordingly. If they speak English or don't specify, continue
+in English.
+
+If they request Cantonese, say: "I'm sorry, we don't have
+Cantonese support available yet. Would English or Mandarin
+work for you?"\`
       },
       edges: [
         {
           id: 'edge_to_english',
-          destination_node_id: 'transfer_english',
+          destination_node_id: 'swap_english',
           transition_condition: {
             type: 'prompt',
             prompt: 'Caller wants English or speaks English or does not specify a language preference'
           }
         },
         {
-          id: 'edge_to_cantonese',
-          destination_node_id: 'transfer_cantonese',
-          transition_condition: {
-            type: 'prompt',
-            prompt: 'Caller requests Cantonese or responds in Cantonese'
-          }
-        },
-        {
           id: 'edge_to_mandarin',
-          destination_node_id: 'transfer_mandarin',
+          destination_node_id: 'swap_mandarin',
           transition_condition: {
             type: 'prompt',
-            prompt: 'Caller requests Mandarin or responds in Mandarin'
+            prompt: 'Caller requests Mandarin or responds in Mandarin (普通话/中文)'
           }
         }
       ]
     },
     {
-      id: 'transfer_english',
-      type: 'agent_transfer',
+      id: 'swap_english',
+      type: 'agent_swap',
       agent_id: 'YOUR_ENGLISH_AGENT_ID',  // Replace with actual agent ID
-      // The English agent inherits full conversation history
+      post_call_analysis_setting: {
+        type: 'default'  // Use default post-call analysis
+      },
+      edge: {
+        destination_node_id: 'swap_failed',
+        transition_condition: {
+          type: 'prompt',
+          prompt: 'Agent swap failed'
+        }
+      }
     },
     {
-      id: 'transfer_cantonese',
-      type: 'agent_transfer',
-      agent_id: 'YOUR_CANTONESE_AGENT_ID',  // Replace with actual agent ID
-    },
-    {
-      id: 'transfer_mandarin',
-      type: 'agent_transfer',
+      id: 'swap_mandarin',
+      type: 'agent_swap',
       agent_id: 'YOUR_MANDARIN_AGENT_ID',  // Replace with actual agent ID
+      post_call_analysis_setting: {
+        type: 'default'
+      },
+      edge: {
+        destination_node_id: 'swap_failed',
+        transition_condition: {
+          type: 'prompt',
+          prompt: 'Agent swap failed'
+        }
+      }
+    },
+    {
+      id: 'swap_failed',
+      type: 'conversation',
+      instruction: {
+        type: 'prompt',
+        text: 'Apologize that we are experiencing technical difficulties and ask them to call back or leave a message.'
+      },
+      edges: [
+        {
+          id: 'edge_to_end',
+          destination_node_id: 'end_call',
+          transition_condition: {
+            type: 'prompt',
+            prompt: 'Always transition to end after apologizing'
+          }
+        }
+      ]
+    },
+    {
+      id: 'end_call',
+      type: 'end',
+      instruction: {
+        type: 'prompt',
+        text: 'End the call politely.'
+      }
     }
   ],
   start_node_id: 'welcome',
@@ -305,11 +344,11 @@ console.log('Routing flow created:', routingFlow.conversation_flow_id);
 
 // -----------------------------------------------
 // STEP 3: Create the English agent's conversation flow
-// (Repeat with translated prompts for Canto/Mandarin)
+// (Repeat with translated prompts for Mandarin)
 // -----------------------------------------------
 
 const englishFlow = await client.conversationFlow.create({
-  model_choice: { model: 'gpt-4.1', type: 'cascading' },
+  model_choice: { model: 'gpt-5', type: 'cascading' },
   start_speaker: 'agent',
   global_prompt: \`You are Lily, a friendly and efficient AI assistant for
 Lok Dentists, a family-owned dental practice with locations in
@@ -463,8 +502,21 @@ Would you like me to transfer you now?"\`
 
     {
       id: 'emergency_transfer',
-      type: 'call_transfer',
-      transfer_destination: '+61402012082',
+      type: 'transfer_call',
+      transfer_destination: {
+        number: '+61402012082'
+      },
+      transfer_option: {
+        prompt: 'Transferring you to our emergency line now.',
+        should_resume: false
+      },
+      edge: {
+        destination_node_id: 'end_call',
+        transition_condition: {
+          type: 'prompt',
+          prompt: 'Transfer failed or completed'
+        }
+      }
     },
 
     {
@@ -664,7 +716,7 @@ Confirm to the caller that the SMS has been sent.\`
 
     {
       id: 'end_call',
-      type: 'ending',
+      type: 'end',
       instruction: {
         type: 'prompt',
         text: \`Say: "Thank you for calling Lok Dentists. Have a
@@ -679,18 +731,104 @@ console.log('English flow created:', englishFlow.conversation_flow_id);
 
 
 // -----------------------------------------------
-// STEP 4: Attach the routing flow to your voice agent
+// STEP 4: Create the English Agent
 // -----------------------------------------------
 
-const agent = await client.agent.create({
-  agent_name: 'Lok Dentists - Language Router',
-  conversation_flow_id: routingFlow.conversation_flow_id,
-  voice_id: 'YOUR_ENGLISH_VOICE_ID',
-  language: 'en-AU',
-  // ... other agent settings
+const englishAgent = await client.agent.create({
+  response_engine: {
+    type: 'retell-conversation-flow',
+    conversation_flow_id: englishFlow.conversation_flow_id
+  },
+  agent_name: 'Lok Dentists - English (Lily)',
+  voice_id: '11labs-Lily',  // Replace with your preferred voice
+  voice_model: 'eleven_multilingual_v2',
+  language: 'en-AU',  // Australian English
+  responsiveness: 0.8,
+  enable_backchannel: true,
+  backchannel_words: ['yeah', 'uh-huh', 'mm-hmm'],
 });
 
-console.log('Agent created:', agent.agent_id);`;
+console.log('English agent created:', englishAgent.agent_id);
+
+
+// -----------------------------------------------
+// STEP 5: Create the Mandarin Agent
+// (Same flow, different language/voice)
+// -----------------------------------------------
+
+// First create the Mandarin flow (same structure, translated prompts)
+const mandarinFlow = await client.conversationFlow.create({
+  model_choice: { model: 'gpt-5', type: 'cascading' },
+  start_speaker: 'agent',
+  global_prompt: \`你是Lily，Lok牙科诊所的友好高效的AI接待员。
+诊所在Chatswood和悉尼CBD都有分店。
+
+关键规则：
+- 预约时一次只问一个问题
+- 在最后总结前不要重复预约详情
+- 热情、专业、简洁
+- 团队成员：Dr Kenny, Dr Adrian, Dr Joyce, Dr Calvin, Dr Daena, Ms Cathy
+- Dr Kenny 只在市区（Sussex St CBD）
+- Dr Adrian 只在Chatswood（装修期间例外）
+- 例外：2026年2月16日至3月23日，Chatswood关闭装修。
+  只有Sussex St（CBD）营业。Dr Adrian在此期间周三周四在市区。
+- 洗牙优先安排Ms Cathy
+- 预约必须在3个月内。如果更远，记录信息。
+- 紧急电话：0402 012 082\`,
+  // ... same node structure as englishFlow but with Chinese prompts
+  nodes: [
+    // Mandarin versions of all nodes
+    // (abbreviated for space - same structure)
+  ],
+  start_node_id: 'identify_intent',
+});
+
+const mandarinAgent = await client.agent.create({
+  response_engine: {
+    type: 'retell-conversation-flow',
+    conversation_flow_id: mandarinFlow.conversation_flow_id
+  },
+  agent_name: 'Lok Dentists - Mandarin (Lily)',
+  voice_id: '11labs-Charlotte',  // Use a voice that supports Chinese
+  voice_model: 'eleven_multilingual_v2',  // Multilingual model required
+  language: 'zh-CN',  // Mandarin Chinese
+  responsiveness: 0.8,
+  enable_backchannel: true,
+  backchannel_words: ['嗯', '好的', '是的'],
+});
+
+console.log('Mandarin agent created:', mandarinAgent.agent_id);
+
+
+// -----------------------------------------------
+// STEP 6: Create the Language Router Agent
+// -----------------------------------------------
+
+// Update the routing flow with actual agent IDs
+const finalRoutingFlow = await client.conversationFlow.update(
+  routingFlow.conversation_flow_id,
+  {
+    nodes: [
+      // ... update swap_english.agent_id to englishAgent.agent_id
+      // ... update swap_mandarin.agent_id to mandarinAgent.agent_id
+    ]
+  }
+);
+
+const routerAgent = await client.agent.create({
+  response_engine: {
+    type: 'retell-conversation-flow',
+    conversation_flow_id: routingFlow.conversation_flow_id
+  },
+  agent_name: 'Lok Dentists - Language Router',
+  voice_id: '11labs-Lily',
+  voice_model: 'eleven_multilingual_v2',  // Multilingual for greeting
+  language: 'multi',  // Enable multilingual detection
+  responsiveness: 0.9,
+});
+
+console.log('Router agent created:', routerAgent.agent_id);
+console.log('Assign this agent to your phone number.');`;
 
 function FlowDiagram({ onSelectNode, selectedId }) {
   const width = 820;
@@ -842,7 +980,7 @@ export default function App() {
               margin: "6px 0 0",
             }}
           >
-            Language routing via Agent Transfer + full booking flow
+            Language routing via Agent Swap (English/Mandarin) + full booking flow
           </p>
         </div>
 
