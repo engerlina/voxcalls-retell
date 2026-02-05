@@ -6,6 +6,11 @@ import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
 const navigation = [
@@ -14,7 +19,6 @@ const navigation = [
   { name: "Knowledge Base", href: "/knowledge", icon: BookIcon },
   { name: "Calls", href: "/calls", icon: PhoneIcon },
   { name: "Phone Numbers", href: "/phone-numbers", icon: HashIcon },
-  { name: "Settings", href: "/settings", icon: SettingsIcon },
 ];
 
 // Navigation for tenant admins (admin role)
@@ -57,31 +61,45 @@ export default function DashboardLayout({
     return null;
   }
 
-  return (
-    <div className="flex min-h-screen">
-      {/* Sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-50 w-64 border-r bg-white">
-        <div className="flex h-full flex-col">
-          {/* Logo */}
-          <Link href="/dashboard" className="flex h-16 items-center gap-2 border-b px-6">
-            <Image
-              src="/android-chrome-192x192.png"
-              alt="VoxCalls"
-              width={32}
-              height={32}
-              className="rounded-lg"
-            />
-            <span className="text-xl font-bold">VoxCalls</span>
-          </Link>
+  // Shared navigation content component
+  const NavigationContent = ({ onNavigate }: { onNavigate?: () => void }) => (
+    <>
+      {/* Navigation */}
+      <nav className="flex-1 space-y-1 px-3 py-4">
+        {navigation.map((item) => {
+          const isActive = pathname === item.href;
+          return (
+            <Link
+              key={item.name}
+              href={item.href}
+              onClick={onNavigate}
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                isActive
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+              )}
+            >
+              <item.icon className="h-5 w-5" />
+              {item.name}
+            </Link>
+          );
+        })}
 
-          {/* Navigation */}
-          <nav className="flex-1 space-y-1 px-3 py-4">
-            {navigation.map((item) => {
+        {/* Tenant Admin Navigation - for admin and super_admin */}
+        {(user?.role === "admin" || user?.role === "super_admin") && (
+          <>
+            <div className="my-4 border-t" />
+            <div className="px-3 py-2 text-xs font-semibold uppercase text-muted-foreground">
+              Team
+            </div>
+            {tenantAdminNavigation.map((item) => {
               const isActive = pathname === item.href;
               return (
                 <Link
                   key={item.name}
                   href={item.href}
+                  onClick={onNavigate}
                   className={cn(
                     "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                     isActive
@@ -94,92 +112,142 @@ export default function DashboardLayout({
                 </Link>
               );
             })}
+          </>
+        )}
 
-            {/* Tenant Admin Navigation - for admin and super_admin */}
-            {(user?.role === "admin" || user?.role === "super_admin") && (
-              <>
-                <div className="my-4 border-t" />
-                <div className="px-3 py-2 text-xs font-semibold uppercase text-muted-foreground">
-                  Team
-                </div>
-                {tenantAdminNavigation.map((item) => {
-                  const isActive = pathname === item.href;
-                  return (
-                    <Link
-                      key={item.name}
-                      href={item.href}
-                      className={cn(
-                        "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                        isActive
-                          ? "bg-primary text-primary-foreground"
-                          : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-                      )}
-                    >
-                      <item.icon className="h-5 w-5" />
-                      {item.name}
-                    </Link>
-                  );
-                })}
-              </>
-            )}
-
-            {/* Super Admin Navigation - only for super_admin */}
-            {user?.role === "super_admin" && (
-              <>
-                <div className="my-4 border-t" />
-                <div className="px-3 py-2 text-xs font-semibold uppercase text-muted-foreground">
-                  Platform Admin
-                </div>
-                {adminNavigation.map((item) => {
-                  const isActive = pathname === item.href;
-                  return (
-                    <Link
-                      key={item.name}
-                      href={item.href}
-                      className={cn(
-                        "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                        isActive
-                          ? "bg-primary text-primary-foreground"
-                          : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-                      )}
-                    >
-                      <item.icon className="h-5 w-5" />
-                      {item.name}
-                    </Link>
-                  );
-                })}
-              </>
-            )}
-          </nav>
-
-          {/* User section */}
-          <div className="border-t p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                {user?.full_name?.charAt(0).toUpperCase() || "U"}
-              </div>
-              <div className="flex-1 truncate">
-                <p className="text-sm font-medium">{user?.full_name}</p>
-                <p className="text-xs text-muted-foreground capitalize">
-                  {user?.role?.replace("_", " ")}
-                </p>
-              </div>
+        {/* Super Admin Navigation - only for super_admin */}
+        {user?.role === "super_admin" && (
+          <>
+            <div className="my-4 border-t" />
+            <div className="px-3 py-2 text-xs font-semibold uppercase text-muted-foreground">
+              Platform Admin
             </div>
-            <Button
-              variant="ghost"
-              className="mt-2 w-full justify-start"
-              onClick={() => logout()}
-            >
-              <LogoutIcon className="mr-2 h-4 w-4" />
-              Sign out
-            </Button>
+            {adminNavigation.map((item) => {
+              const isActive = pathname === item.href;
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  onClick={onNavigate}
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                    isActive
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  )}
+                >
+                  <item.icon className="h-5 w-5" />
+                  {item.name}
+                </Link>
+              );
+            })}
+          </>
+        )}
+      </nav>
+
+      {/* Settings - bottom aligned */}
+      <div className="px-3 pb-2">
+        <Link
+          href="/settings"
+          onClick={onNavigate}
+          className={cn(
+            "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+            pathname === "/settings"
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+          )}
+        >
+          <SettingsIcon className="h-5 w-5" />
+          Settings
+        </Link>
+      </div>
+
+      {/* User section */}
+      <div className="border-t p-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground">
+            {user?.full_name?.charAt(0).toUpperCase() || "U"}
           </div>
+          <div className="flex-1 truncate">
+            <p className="text-sm font-medium">{user?.full_name}</p>
+            <p className="text-xs text-muted-foreground capitalize">
+              {user?.role?.replace("_", " ")}
+            </p>
+          </div>
+        </div>
+        <Button
+          variant="ghost"
+          className="mt-2 w-full justify-start"
+          onClick={() => logout()}
+        >
+          <LogoutIcon className="mr-2 h-4 w-4" />
+          Sign out
+        </Button>
+      </div>
+    </>
+  );
+
+  return (
+    <div className="flex min-h-screen">
+      {/* Desktop Sidebar - hidden on mobile */}
+      <aside className="fixed inset-y-0 left-0 z-50 hidden w-64 border-r bg-white md:block">
+        <div className="flex h-full flex-col">
+          {/* Logo */}
+          <Link href="/dashboard" className="flex h-16 items-center gap-2 border-b px-6">
+            <Image
+              src="/android-chrome-192x192.png"
+              alt="VoxCalls"
+              width={32}
+              height={32}
+              className="rounded-lg"
+            />
+            <span className="text-xl font-bold">VoxCalls</span>
+          </Link>
+          <NavigationContent />
         </div>
       </aside>
 
+      {/* Mobile Header */}
+      <header className="fixed inset-x-0 top-0 z-50 flex h-16 items-center justify-between border-b bg-white px-4 md:hidden">
+        <Link href="/dashboard" className="flex items-center gap-2">
+          <Image
+            src="/android-chrome-192x192.png"
+            alt="VoxCalls"
+            width={32}
+            height={32}
+            className="rounded-lg"
+          />
+          <span className="text-xl font-bold">VoxCalls</span>
+        </Link>
+        <Sheet>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon">
+              <MenuIcon className="h-6 w-6" />
+              <span className="sr-only">Toggle menu</span>
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="w-64 p-0">
+            <div className="flex h-full flex-col">
+              {/* Logo in mobile menu */}
+              <div className="flex h-16 items-center gap-2 border-b px-6">
+                <Image
+                  src="/android-chrome-192x192.png"
+                  alt="VoxCalls"
+                  width={32}
+                  height={32}
+                  className="rounded-lg"
+                />
+                <span className="text-xl font-bold">VoxCalls</span>
+              </div>
+              <NavigationContent />
+            </div>
+          </SheetContent>
+        </Sheet>
+      </header>
+
       {/* Main content */}
-      <main className="flex-1 pl-64">
-        <div className="container mx-auto px-6 py-8">{children}</div>
+      <main className="flex-1 pt-16 md:pl-64 md:pt-0">
+        <div className="container mx-auto px-4 py-6 md:px-6 md:py-8">{children}</div>
       </main>
     </div>
   );
@@ -255,6 +323,14 @@ function UsersIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+    </svg>
+  );
+}
+
+function MenuIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
     </svg>
   );
 }
