@@ -549,7 +549,7 @@ export default function CallsPage() {
               {/* Tab Content */}
               <div className="mt-4">
                 {activeTab === "overview" ? (
-                  <OverviewTab details={conversationDetails} />
+                  <OverviewTab details={conversationDetails} call={selectedCall} />
                 ) : (
                   <TranscriptTab transcript={conversationDetails.transcript} />
                 )}
@@ -790,9 +790,12 @@ function AudioPlayer({ src }: { src: string | null }) {
   );
 }
 
-function OverviewTab({ details }: { details: ConversationDetails }) {
+function OverviewTab({ details, call }: { details: ConversationDetails; call: Call | null }) {
+  // Use start_time_unix_secs from details, or fall back to start_time from the call list
   const startDate = details.start_time_unix_secs
     ? new Date(details.start_time_unix_secs * 1000)
+    : call?.start_time
+    ? new Date(call.start_time * 1000)
     : null;
 
   const duration = details.metadata?.call_duration_secs
