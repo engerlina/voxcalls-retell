@@ -353,7 +353,7 @@ function AddUrlModal({
         <CardHeader>
           <CardTitle>Add URL</CardTitle>
           <CardDescription>
-            Add a webpage to this agent's knowledge base
+            Add a webpage to this agent&apos;s knowledge base
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
@@ -429,7 +429,7 @@ function AddTextModal({
         <CardHeader>
           <CardTitle>Create Text Document</CardTitle>
           <CardDescription>
-            Add text content to this agent's knowledge base
+            Add text content to this agent&apos;s knowledge base
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>

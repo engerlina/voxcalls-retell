@@ -26,21 +26,21 @@ const LLM_MODELS = [
 ];
 
 const LANGUAGES = [
-  { value: "en", label: "English", flag: "🇺🇸" },
-  { value: "es", label: "Spanish", flag: "🇪🇸" },
-  { value: "fr", label: "French", flag: "🇫🇷" },
-  { value: "de", label: "German", flag: "🇩🇪" },
-  { value: "it", label: "Italian", flag: "🇮🇹" },
-  { value: "pt", label: "Portuguese", flag: "🇵🇹" },
-  { value: "nl", label: "Dutch", flag: "🇳🇱" },
-  { value: "pl", label: "Polish", flag: "🇵🇱" },
-  { value: "ja", label: "Japanese", flag: "🇯🇵" },
-  { value: "ko", label: "Korean", flag: "🇰🇷" },
-  { value: "zh", label: "Chinese", flag: "🇨🇳" },
-  { value: "ar", label: "Arabic", flag: "🇸🇦" },
-  { value: "hi", label: "Hindi", flag: "🇮🇳" },
-  { value: "ru", label: "Russian", flag: "🇷🇺" },
-  { value: "tr", label: "Turkish", flag: "🇹🇷" },
+  { value: "en", label: "English", flagCode: "us" },
+  { value: "es", label: "Spanish", flagCode: "es" },
+  { value: "fr", label: "French", flagCode: "fr" },
+  { value: "de", label: "German", flagCode: "de" },
+  { value: "it", label: "Italian", flagCode: "it" },
+  { value: "pt", label: "Portuguese", flagCode: "pt" },
+  { value: "nl", label: "Dutch", flagCode: "nl" },
+  { value: "pl", label: "Polish", flagCode: "pl" },
+  { value: "ja", label: "Japanese", flagCode: "jp" },
+  { value: "ko", label: "Korean", flagCode: "kr" },
+  { value: "zh", label: "Chinese", flagCode: "cn" },
+  { value: "ar", label: "Arabic", flagCode: "sa" },
+  { value: "hi", label: "Hindi", flagCode: "in" },
+  { value: "ru", label: "Russian", flagCode: "ru" },
+  { value: "tr", label: "Turkish", flagCode: "tr" },
 ];
 
 const VOICES = [
@@ -217,7 +217,7 @@ export default function AgentConfigPage() {
   };
 
   const getLanguageInfo = (code: string) => {
-    return LANGUAGES.find((l) => l.value === code) || { label: code, flag: "" };
+    return LANGUAGES.find((l) => l.value === code) || { label: code, flagCode: "" };
   };
 
   const addVoice = (voiceId: string) => {
@@ -377,7 +377,7 @@ export default function AgentConfigPage() {
           <CardHeader>
             <CardTitle>Basic Settings</CardTitle>
             <CardDescription>
-              Configure the agent's name and behavior
+              Configure the agent&apos;s name and behavior
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -432,7 +432,7 @@ export default function AgentConfigPage() {
                 disabled={!isAdmin}
               />
               <p className="text-xs text-muted-foreground">
-                Instructions that define the agent's personality and behavior
+                Instructions that define the agent&apos;s personality and behavior
               </p>
             </div>
           </CardContent>
@@ -443,7 +443,7 @@ export default function AgentConfigPage() {
           <CardHeader>
             <CardTitle>Voice & Language</CardTitle>
             <CardDescription>
-              Configure the agent's voice and language settings
+              Configure the agent&apos;s voice and language settings
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -534,7 +534,10 @@ export default function AgentConfigPage() {
                       className="flex items-center justify-between rounded-lg border bg-muted/30 px-3 py-2"
                     >
                       <div className="flex items-center gap-3">
-                        <span className="text-lg">{langInfo.flag}</span>
+                        <span
+                          className={`fi fi-${langInfo.flagCode} rounded-sm`}
+                          style={{ width: "20px", height: "15px" }}
+                        />
                         <span className="font-medium">{langInfo.label}</span>
                         {lang.isDefault && (
                           <span className="rounded bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
@@ -614,7 +617,7 @@ export default function AgentConfigPage() {
           <CardHeader>
             <CardTitle>Advanced Settings</CardTitle>
             <CardDescription>
-              Fine-tune the agent's conversation behavior
+              Fine-tune the agent&apos;s conversation behavior
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -832,7 +835,10 @@ export default function AgentConfigPage() {
                       className="flex w-full items-center gap-3 rounded-lg border px-3 py-2 hover:bg-muted/50"
                       onClick={() => addLanguage(lang.value)}
                     >
-                      <span className="text-xl">{lang.flag}</span>
+                      <span
+                        className={`fi fi-${lang.flagCode} rounded-sm`}
+                        style={{ width: "20px", height: "15px" }}
+                      />
                       <span className="font-medium">{lang.label}</span>
                     </button>
                   )
