@@ -14,15 +14,16 @@ class AgentBase(BaseModel):
     system_prompt: str | None = None
     welcome_message: str | None = None
     voice_id: str | None = None
-    llm_model: str = "gpt-4o-mini"
-    language: str = "en"
+    llm_model: str = "gpt-4o"
+    language: str = "en-US"
 
 
 class AgentCreate(AgentBase):
     """Agent creation schema."""
 
-    max_conversation_turns: int = 100
-    min_silence_duration: float = 0.4
+    responsiveness: float = 0.8
+    interruption_sensitivity: float = 0.7
+    ambient_sound: str | None = None
     temperature: float = 0.7
 
 
@@ -35,8 +36,9 @@ class AgentUpdate(BaseModel):
     voice_id: str | None = None
     llm_model: str | None = None
     language: str | None = None
-    max_conversation_turns: int | None = None
-    min_silence_duration: float | None = None
+    responsiveness: float | None = None
+    interruption_sensitivity: float | None = None
+    ambient_sound: str | None = None
     temperature: float | None = None
     knowledge_base_ids: list[str] | None = None
     tools_config: dict | None = None
@@ -48,10 +50,12 @@ class AgentResponse(AgentBase):
 
     id: UUID
     tenant_id: UUID
-    elevenlabs_agent_id: str | None
+    retell_agent_id: str | None
+    retell_llm_id: str | None
     assigned_user_id: UUID | None
-    max_conversation_turns: int
-    min_silence_duration: float
+    responsiveness: float
+    interruption_sensitivity: float
+    ambient_sound: str | None
     temperature: float
     knowledge_base_ids: list[str]
     tools_config: dict | None

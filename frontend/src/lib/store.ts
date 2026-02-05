@@ -53,15 +53,17 @@ export interface Agent {
   id: string;
   name: string;
   status: string;
-  elevenlabs_agent_id: string | null;
+  retell_agent_id: string | null;
+  retell_llm_id: string | null;
   voice_id: string | null;
   llm_model: string;
   language: string;
   system_prompt: string | null;
   welcome_message: string | null;
   temperature: number;
-  max_conversation_turns: number;
-  min_silence_duration: number;
+  responsiveness: number;
+  interruption_sensitivity: number;
+  ambient_sound: string | null;
   tenant_id: string;
   assigned_user_id: string | null;
   knowledge_base_ids: string[];
@@ -178,10 +180,11 @@ export interface AvailableNumbersResult {
 
 export interface PooledPhoneNumber {
   id: string;
-  twilio_sid: string;
   phone_number: string;
+  retell_phone_id: string | null;
   country_code: string | null;
   number_type: string | null;
+  sip_trunk_uri: string | null;
   tenant_id: string | null;
   assigned_user_id: string | null;
   assigned_agent_id: string | null;

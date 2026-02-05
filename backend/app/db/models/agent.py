@@ -22,7 +22,7 @@ class Agent(Base):
     """
     Voice AI Agent model.
 
-    Maps to an ElevenLabs agent with VoxCalls metadata.
+    Maps to a Retell AI agent with VoxCalls metadata.
     """
 
     __tablename__ = "agents"
@@ -41,10 +41,14 @@ class Agent(Base):
         nullable=False,
     )
 
-    # ElevenLabs reference
-    elevenlabs_agent_id: Mapped[str | None] = mapped_column(
+    # Retell AI references
+    retell_agent_id: Mapped[str | None] = mapped_column(
         String(255),
         unique=True,
+        nullable=True,
+    )
+    retell_llm_id: Mapped[str | None] = mapped_column(
+        String(255),
         nullable=True,
     )
 
@@ -63,12 +67,13 @@ class Agent(Base):
     llm_model: Mapped[str] = mapped_column(String(100), default="gpt-4o-mini")
     language: Mapped[str] = mapped_column(String(10), default="en")
 
-    # Settings
-    max_conversation_turns: Mapped[int] = mapped_column(Integer, default=100)
-    min_silence_duration: Mapped[float] = mapped_column(Float, default=0.4)
+    # Retell-specific settings
+    responsiveness: Mapped[float] = mapped_column(Float, default=0.8)
+    interruption_sensitivity: Mapped[float] = mapped_column(Float, default=0.7)
+    ambient_sound: Mapped[str | None] = mapped_column(String(50), nullable=True)
     temperature: Mapped[float] = mapped_column(Float, default=0.7)
 
-    # Knowledge base document IDs (ElevenLabs)
+    # Knowledge base IDs (Retell)
     knowledge_base_ids: Mapped[list] = mapped_column(JSON, default=list)
 
     # Tools configuration

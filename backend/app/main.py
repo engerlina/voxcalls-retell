@@ -83,8 +83,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="VoxCalls API",
-    description="Multi-tenant Voice AI Platform powered by ElevenLabs",
-    version="1.0.0",
+    description="Multi-tenant Voice AI Platform powered by Retell AI",
+    version="2.0.0",
     lifespan=lifespan,
     docs_url="/api/docs" if settings.ENVIRONMENT != "production" else None,
     redoc_url="/api/redoc" if settings.ENVIRONMENT != "production" else None,

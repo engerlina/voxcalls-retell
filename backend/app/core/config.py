@@ -36,13 +36,18 @@ class Settings(BaseSettings):
     # Encryption
     ENCRYPTION_KEY: str | None = None
 
-    # ElevenLabs
-    ELEVENLABS_API_KEY: str
+    # Retell AI
+    RETELL_API_KEY: str
 
-    # Twilio (for API access to purchase/manage numbers)
-    TWILIO_ACCOUNT_SID: str
-    TWILIO_AUTH_TOKEN: str
-    TWILIO_ADDRESS_SID: str | None = None  # Required for purchasing numbers in some countries (e.g., AU)
+    # Twilio SIP Trunking
+    TWILIO_TERMINATION_SIP_URL: str | None = None
+    SIP_USERNAME: str | None = None
+    SIP_PASSWORD: str | None = None
+
+    # Twilio API (optional, for purchasing numbers)
+    TWILIO_ACCOUNT_SID: str | None = None
+    TWILIO_AUTH_TOKEN: str | None = None
+    TWILIO_ADDRESS_SID: str | None = None
 
     # Redis
     REDIS_URL: str | None = None

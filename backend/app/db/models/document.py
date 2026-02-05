@@ -20,7 +20,7 @@ class Document(Base):
     """
     Knowledge base document model.
 
-    Maps to an ElevenLabs knowledge base document.
+    Maps to a Retell AI knowledge base document.
     """
 
     __tablename__ = "documents"
@@ -46,8 +46,9 @@ class Document(Base):
         nullable=False,
     )
 
-    # ElevenLabs reference
-    elevenlabs_doc_id: Mapped[str | None] = mapped_column(String(255))
+    # Retell AI reference
+    retell_knowledge_base_id: Mapped[str | None] = mapped_column(String(255))
+    retell_doc_id: Mapped[str | None] = mapped_column(String(255))
 
     # Metadata
     name: Mapped[str] = mapped_column(String(255), nullable=False)

@@ -1,4 +1,4 @@
-from app.services.elevenlabs import ElevenLabsService
+from app.services.retell import RetellService, retell_service
 from app.services.twilio import TwilioService
 
-__all__ = ["ElevenLabsService", "TwilioService"]
+__all__ = ["RetellService", "retell_service", "TwilioService"]

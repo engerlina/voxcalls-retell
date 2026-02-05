@@ -20,7 +20,7 @@ pydantic-settings==2.1.0
 email-validator==2.1.0.post1
 
 # External APIs
-elevenlabs==1.0.0
+retell-sdk==5.11.0
 twilio==8.13.0
 httpx==0.26.0
 

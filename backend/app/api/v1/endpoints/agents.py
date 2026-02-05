@@ -4,14 +4,13 @@ Agent management endpoints.
 import logging
 from uuid import UUID
 
-import httpx
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
 
 from app.core.deps import DbSession, CurrentUser, CurrentAdmin
 from app.db import models
 from app.schemas.agent import AgentCreate, AgentUpdate, AgentResponse
-from app.services.elevenlabs import ElevenLabsService
+from app.services.retell import retell_service
 
 logger = logging.getLogger(__name__)
 
@@ -80,33 +79,45 @@ async def create_agent(
     db.add(db_agent)
     await db.flush()
 
-    # Create agent in ElevenLabs
+    # Create LLM (Response Engine) in Retell
     try:
-        elevenlabs = ElevenLabsService()
-        elevenlabs_agent = await elevenlabs.create_agent(
-            name=agent.name,
-            system_prompt=agent.system_prompt,
-            welcome_message=agent.welcome_message,
-            voice_id=agent.voice_id,
-            llm_model=agent.llm_model,
+        # Build states for conversation flow
+        states = [
+            {
+                "name": "greeting",
+                "state_prompt": agent.welcome_message or "Hello! How can I help you today?",
+                "edges": [],
+            }
+        ]
+
+        llm_result = await retell_service.create_llm(
+            general_prompt=agent.system_prompt or "You are a helpful voice assistant.",
+            model=agent.llm_model,
+            model_temperature=agent.temperature,
+            states=states,
+            starting_state="greeting",
+            general_tools=[{"type": "end_call", "name": "end_call", "description": "End the call"}],
+        )
+        db_agent.retell_llm_id = llm_result["llm_id"]
+
+        # Create voice agent in Retell
+        agent_result = await retell_service.create_agent(
+            agent_name=agent.name,
+            llm_id=llm_result["llm_id"],
+            voice_id=agent.voice_id or "11labs-Adrian",
             language=agent.language,
+            responsiveness=agent.responsiveness,
+            interruption_sensitivity=agent.interruption_sensitivity,
+            ambient_sound=agent.ambient_sound,
         )
-        # ElevenLabs returns either "agent_id" or "id" depending on API version
-        db_agent.elevenlabs_agent_id = elevenlabs_agent.get("agent_id") or elevenlabs_agent.get("id")
-    except httpx.HTTPStatusError as e:
-        await db.rollback()
-        error_detail = e.response.text if e.response else str(e)
-        logger.error(f"ElevenLabs API error: {e.response.status_code} - {error_detail}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create agent in ElevenLabs ({e.response.status_code}): {error_detail}",
-        )
+        db_agent.retell_agent_id = agent_result["agent_id"]
+
     except Exception as e:
         await db.rollback()
-        logger.error(f"ElevenLabs error: {str(e)}")
+        logger.error(f"Retell API error: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create agent in ElevenLabs: {str(e)}",
+            detail=f"Failed to create agent in Retell: {str(e)}",
         )
 
     await db.commit()
@@ -184,24 +195,31 @@ async def update_agent(
     for field, value in update_data.items():
         setattr(agent, field, value)
 
-    # Update in ElevenLabs
-    if agent.elevenlabs_agent_id:
+    # Update in Retell
+    if agent.retell_llm_id:
         try:
-            elevenlabs = ElevenLabsService()
-            await elevenlabs.update_agent(
-                agent_id=agent.elevenlabs_agent_id,
-                name=agent.name,
-                system_prompt=agent.system_prompt,
-                welcome_message=agent.welcome_message,
-                voice_id=agent.voice_id,
-                llm_model=agent.llm_model,
-                language=agent.language,
+            await retell_service.update_llm(
+                llm_id=agent.retell_llm_id,
+                general_prompt=agent.system_prompt,
+                model=agent.llm_model,
+                model_temperature=agent.temperature,
             )
         except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to update agent in ElevenLabs: {str(e)}",
+            logger.warning(f"Failed to update LLM in Retell: {str(e)}")
+
+    if agent.retell_agent_id:
+        try:
+            await retell_service.update_agent(
+                agent_id=agent.retell_agent_id,
+                agent_name=agent.name,
+                voice_id=agent.voice_id,
+                language=agent.language,
+                responsiveness=agent.responsiveness,
+                interruption_sensitivity=agent.interruption_sensitivity,
+                ambient_sound=agent.ambient_sound,
             )
+        except Exception as e:
+            logger.warning(f"Failed to update agent in Retell: {str(e)}")
 
     await db.commit()
     await db.refresh(agent)
@@ -237,13 +255,18 @@ async def delete_agent(
     # Soft delete
     agent.status = "deleted"
 
-    # Delete from ElevenLabs
-    if agent.elevenlabs_agent_id:
+    # Delete from Retell
+    if agent.retell_agent_id:
         try:
-            elevenlabs = ElevenLabsService()
-            await elevenlabs.delete_agent(agent.elevenlabs_agent_id)
+            await retell_service.delete_agent(agent.retell_agent_id)
         except Exception:
-            pass  # Continue even if ElevenLabs delete fails
+            pass  # Continue even if Retell delete fails
+
+    if agent.retell_llm_id:
+        try:
+            await retell_service.delete_llm(agent.retell_llm_id)
+        except Exception:
+            pass  # Continue even if Retell delete fails
 
     await db.commit()
 

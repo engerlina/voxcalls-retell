@@ -33,16 +33,18 @@ class PhoneNumber(Base):
         default=uuid.uuid4,
     )
 
-    # Twilio data
-    twilio_sid: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
-    phone_number: Mapped[str] = mapped_column(String(50), nullable=False)
+    # Phone data
+    phone_number: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
     country_code: Mapped[str | None] = mapped_column(String(10))
     number_type: Mapped[str | None] = mapped_column(
         String(50)
     )  # local, mobile, toll_free
 
-    # ElevenLabs reference
-    elevenlabs_phone_id: Mapped[str | None] = mapped_column(String(255))
+    # Retell AI reference
+    retell_phone_id: Mapped[str | None] = mapped_column(String(255))
+
+    # SIP Trunk configuration
+    sip_trunk_uri: Mapped[str | None] = mapped_column(String(255))
 
     # Assignment (NULL = available in pool)
     tenant_id: Mapped[uuid.UUID | None] = mapped_column(

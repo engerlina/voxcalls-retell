@@ -52,8 +52,11 @@ class Call(Base):
         nullable=True,
     )
 
-    # ElevenLabs reference
-    elevenlabs_conversation_id: Mapped[str | None] = mapped_column(String(255))
+    # Retell AI reference
+    retell_call_id: Mapped[str | None] = mapped_column(String(255))
+
+    # Recording URL
+    recording_url: Mapped[str | None] = mapped_column(Text)
 
     # Call metadata
     phone_number: Mapped[str | None] = mapped_column(String(50))

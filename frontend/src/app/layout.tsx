@@ -8,7 +8,7 @@ const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "VoxCalls - Voice AI Platform",
-  description: "Multi-tenant Voice AI Platform powered by ElevenLabs",
+  description: "Multi-tenant Voice AI Platform powered by Retell AI",
   manifest: "/site.webmanifest",
   icons: {
     icon: [
