@@ -60,7 +60,7 @@ class Settings(BaseSettings):
     CORS_ORIGINS: List[str] = [
         "http://localhost:3000",
         "http://localhost:3001",
-        "https://frontend-six-pi-54.vercel.app",
+        "https://voxcalls-retell.vercel.app",
     ]
 
     @property
