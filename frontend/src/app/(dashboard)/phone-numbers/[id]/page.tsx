@@ -130,12 +130,12 @@ export default function PhoneNumberDetailPage() {
           <h1 className="text-2xl font-bold font-mono">{phoneNumber.phone_number}</h1>
           <p className="text-muted-foreground flex items-center gap-1">
             {phoneNumber.number_type}
-            {phoneNumber.country_code && (
-              <>
-                <span className="mx-1">•</span>
-                <CountryDisplay countryCode={phoneNumber.country_code} size="sm" />
-              </>
-            )}
+            <span className="mx-1">•</span>
+            <CountryDisplay
+              countryCode={phoneNumber.country_code}
+              phoneNumber={phoneNumber.phone_number}
+              size="sm"
+            />
           </p>
         </div>
       </div>
@@ -172,7 +172,11 @@ export default function PhoneNumberDetailPage() {
             </div>
             <div className="flex justify-between items-center">
               <span className="text-muted-foreground">Country</span>
-              <CountryDisplay countryCode={phoneNumber.country_code} size="md" />
+              <CountryDisplay
+                countryCode={phoneNumber.country_code}
+                phoneNumber={phoneNumber.phone_number}
+                size="md"
+              />
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Claimed</span>

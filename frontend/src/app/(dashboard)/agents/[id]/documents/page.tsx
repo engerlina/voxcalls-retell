@@ -26,6 +26,19 @@ interface KnowledgeDocument {
   agent_id: string | null;
 }
 
+interface UploadQueueItem {
+  id: string;
+  file: File;
+  status: "pending" | "uploading" | "complete" | "error";
+  error?: string;
+}
+
+interface Toast {
+  id: string;
+  message: string;
+  type: "success" | "error" | "info";
+}
+
 export default function AgentDocumentsPage() {
   const params = useParams();
   const router = useRouter();
@@ -39,6 +52,8 @@ export default function AgentDocumentsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showAddUrlModal, setShowAddUrlModal] = useState(false);
   const [showAddTextModal, setShowAddTextModal] = useState(false);
+  const [uploadQueue, setUploadQueue] = useState<UploadQueueItem[]>([]);
+  const [toasts, setToasts] = useState<Toast[]>([]);
 
   useEffect(() => {
     loadData();
@@ -68,13 +83,97 @@ export default function AgentDocumentsPage() {
     }
   };
 
+  // Toast helpers
+  const showToast = (message: string, type: Toast["type"] = "info") => {
+    const id = String(Date.now());
+    setToasts((prev) => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 4000);
+  };
+
+  const dismissToast = (id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  };
+
+  // File upload with queue
+  const handleFileUpload = async (files: FileList) => {
+    if (files.length === 0) return;
+
+    // Create queue items for all files
+    const newItems: UploadQueueItem[] = Array.from(files).map((file) => ({
+      id: `${Date.now()}-${file.name}`,
+      file,
+      status: "pending" as const,
+    }));
+
+    setUploadQueue((prev) => [...prev, ...newItems]);
+
+    // Process uploads sequentially
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (const item of newItems) {
+      // Update status to uploading
+      setUploadQueue((prev) =>
+        prev.map((q) => (q.id === item.id ? { ...q, status: "uploading" } : q))
+      );
+
+      try {
+        await api.uploadKnowledgeFile(item.file, agentId);
+        successCount++;
+        // Update status to complete
+        setUploadQueue((prev) =>
+          prev.map((q) => (q.id === item.id ? { ...q, status: "complete" } : q))
+        );
+      } catch (err: unknown) {
+        errorCount++;
+        const message = err instanceof Error ? err.message : "Upload failed";
+        // Update status to error
+        setUploadQueue((prev) =>
+          prev.map((q) =>
+            q.id === item.id ? { ...q, status: "error", error: message } : q
+          )
+        );
+      }
+    }
+
+    // Show toast with results
+    if (successCount > 0 && errorCount === 0) {
+      showToast(
+        `${successCount} file${successCount > 1 ? "s" : ""} uploaded successfully`,
+        "success"
+      );
+    } else if (successCount > 0 && errorCount > 0) {
+      showToast(
+        `${successCount} uploaded, ${errorCount} failed`,
+        "info"
+      );
+    } else if (errorCount > 0) {
+      showToast(`Failed to upload ${errorCount} file${errorCount > 1 ? "s" : ""}`, "error");
+    }
+
+    // Reload documents
+    loadData();
+
+    // Clear completed items from queue after delay
+    setTimeout(() => {
+      setUploadQueue((prev) => prev.filter((q) => q.status !== "complete"));
+    }, 2000);
+  };
+
+  const clearUploadQueue = () => {
+    setUploadQueue((prev) => prev.filter((q) => q.status === "uploading"));
+  };
+
   const handleDeleteDocument = async (id: string) => {
     if (confirm("Are you sure you want to delete this document?")) {
       try {
         await api.deleteKnowledgeDocument(id);
         setDocuments(documents.filter((d) => d.id !== id));
+        showToast("Document deleted", "success");
       } catch {
-        alert("Failed to delete document");
+        showToast("Failed to delete document", "error");
       }
     }
   };
@@ -112,6 +211,85 @@ export default function AgentDocumentsPage() {
 
   return (
     <div>
+      {/* Toast Notifications */}
+      <div className="fixed top-4 right-4 z-50 flex flex-col gap-2">
+        {toasts.map((toast) => (
+          <div
+            key={toast.id}
+            className={`flex items-center gap-2 rounded-lg px-4 py-3 shadow-lg transition-all animate-in slide-in-from-right ${
+              toast.type === "success"
+                ? "bg-green-600 text-white"
+                : toast.type === "error"
+                ? "bg-red-600 text-white"
+                : "bg-primary text-white"
+            }`}
+          >
+            {toast.type === "success" && <CheckCircleIcon className="h-5 w-5" />}
+            {toast.type === "error" && <XCircleIcon className="h-5 w-5" />}
+            {toast.type === "info" && <InfoIcon className="h-5 w-5" />}
+            <span className="text-sm font-medium">{toast.message}</span>
+            <button
+              onClick={() => dismissToast(toast.id)}
+              className="ml-2 hover:opacity-80"
+            >
+              <XIcon className="h-4 w-4" />
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {/* Upload Queue */}
+      {uploadQueue.length > 0 && (
+        <div className="fixed bottom-4 right-4 z-50 w-80 rounded-lg border bg-white shadow-xl">
+          <div className="flex items-center justify-between border-b px-4 py-3">
+            <div className="flex items-center gap-2">
+              <UploadIcon className="h-4 w-4 text-primary" />
+              <span className="text-sm font-medium">
+                Uploading {uploadQueue.filter((q) => q.status === "uploading").length > 0 ? "..." : "Complete"}
+              </span>
+            </div>
+            <button
+              onClick={clearUploadQueue}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <XIcon className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="max-h-64 overflow-y-auto">
+            {uploadQueue.map((item) => (
+              <div
+                key={item.id}
+                className="flex items-center gap-3 border-b px-4 py-2 last:border-0"
+              >
+                <div className="flex-shrink-0">
+                  {item.status === "pending" && (
+                    <div className="h-4 w-4 rounded-full border-2 border-muted" />
+                  )}
+                  {item.status === "uploading" && (
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                  )}
+                  {item.status === "complete" && (
+                    <CheckCircleIcon className="h-4 w-4 text-green-600" />
+                  )}
+                  {item.status === "error" && (
+                    <XCircleIcon className="h-4 w-4 text-red-600" />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{item.file.name}</p>
+                  {item.status === "error" && item.error && (
+                    <p className="truncate text-xs text-red-600">{item.error}</p>
+                  )}
+                  {item.status === "uploading" && (
+                    <p className="text-xs text-muted-foreground">Uploading...</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
@@ -183,18 +361,10 @@ export default function AgentDocumentsPage() {
           multiple
           accept=".pdf,.txt,.docx,.html,.htm,.epub,.md,.markdown"
           className="hidden"
-          onChange={async (e) => {
+          onChange={(e) => {
             const files = e.target.files;
             if (files && files.length > 0) {
-              for (const file of Array.from(files)) {
-                try {
-                  await api.uploadKnowledgeFile(file, agentId);
-                } catch (err: unknown) {
-                  const message = err instanceof Error ? err.message : "Unknown error";
-                  alert(`Failed to upload ${file.name}: ${message}`);
-                }
-              }
-              loadData();
+              handleFileUpload(files);
             }
             e.target.value = "";
           }}
@@ -302,7 +472,9 @@ export default function AgentDocumentsPage() {
           onSuccess={() => {
             setShowAddUrlModal(false);
             loadData();
+            showToast("URL added successfully", "success");
           }}
+          onError={(msg) => showToast(msg, "error")}
         />
       )}
 
@@ -314,7 +486,9 @@ export default function AgentDocumentsPage() {
           onSuccess={() => {
             setShowAddTextModal(false);
             loadData();
+            showToast("Text document created successfully", "success");
           }}
+          onError={(msg) => showToast(msg, "error")}
         />
       )}
     </div>
@@ -325,10 +499,12 @@ function AddUrlModal({
   agentId,
   onClose,
   onSuccess,
+  onError,
 }: {
   agentId: string;
   onClose: () => void;
   onSuccess: () => void;
+  onError: (message: string) => void;
 }) {
   const [url, setUrl] = useState("");
   const [name, setName] = useState("");
@@ -341,7 +517,8 @@ function AddUrlModal({
       await api.addKnowledgeUrl(name || url, url, agentId);
       onSuccess();
     } catch {
-      alert("Failed to add URL");
+      onError("Failed to add URL");
+      onClose();
     } finally {
       setIsSubmitting(false);
     }
@@ -401,10 +578,12 @@ function AddTextModal({
   agentId,
   onClose,
   onSuccess,
+  onError,
 }: {
   agentId: string;
   onClose: () => void;
   onSuccess: () => void;
+  onError: (message: string) => void;
 }) {
   const [name, setName] = useState("");
   const [content, setContent] = useState("");
@@ -417,7 +596,8 @@ function AddTextModal({
       await api.addKnowledgeText(name, content, agentId);
       onSuccess();
     } catch {
-      alert("Failed to create text document");
+      onError("Failed to create text document");
+      onClose();
     } finally {
       setIsSubmitting(false);
     }
@@ -544,6 +724,46 @@ function TrashIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+    </svg>
+  );
+}
+
+function CheckCircleIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  );
+}
+
+function XCircleIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  );
+}
+
+function XIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+    </svg>
+  );
+}
+
+function InfoIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  );
+}
+
+function UploadIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
     </svg>
   );
 }

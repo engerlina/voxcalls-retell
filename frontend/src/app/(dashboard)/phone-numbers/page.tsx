@@ -167,12 +167,12 @@ export default function PhoneNumbersPage() {
                         <div className="font-mono">{number.phone_number}</div>
                         <div className="text-sm text-muted-foreground flex items-center gap-1">
                           {number.number_type}
-                          {number.country_code && (
-                            <>
-                              <span className="mx-1">•</span>
-                              <CountryDisplay countryCode={number.country_code} size="sm" />
-                            </>
-                          )}
+                          <span className="mx-1">•</span>
+                          <CountryDisplay
+                            countryCode={number.country_code}
+                            phoneNumber={number.phone_number}
+                            size="sm"
+                          />
                         </div>
                       </div>
                       <Button
@@ -217,12 +217,12 @@ function PhoneNumberCard({
             </CardTitle>
             <CardDescription className="flex items-center gap-1">
               {phoneNumber.number_type}
-              {phoneNumber.country_code && (
-                <>
-                  <span className="mx-1">•</span>
-                  <CountryDisplay countryCode={phoneNumber.country_code} size="sm" />
-                </>
-              )}
+              <span className="mx-1">•</span>
+              <CountryDisplay
+                countryCode={phoneNumber.country_code}
+                phoneNumber={phoneNumber.phone_number}
+                size="sm"
+              />
             </CardDescription>
           </div>
           <span

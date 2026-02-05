@@ -11,6 +11,13 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useAgentStore, useAuthStore, Agent } from "@/lib/store";
+import { api } from "@/lib/api";
+
+interface PhoneNumberInfo {
+  id: string;
+  phone_number: string;
+  assigned_agent_id: string | null;
+}
 
 export default function AgentsPage() {
   const { agents, isLoading, fetchAgents, createAgent, deleteAgent } =
@@ -21,10 +28,29 @@ export default function AgentsPage() {
   const [newAgentName, setNewAgentName] = useState("");
   const [newAgentPrompt, setNewAgentPrompt] = useState("");
   const [isCreating, setIsCreating] = useState(false);
+  const [phoneNumbers, setPhoneNumbers] = useState<PhoneNumberInfo[]>([]);
 
   useEffect(() => {
     fetchAgents();
+    loadPhoneNumbers();
   }, [fetchAgents]);
+
+  const loadPhoneNumbers = async () => {
+    try {
+      const numbers = await api.getPhoneNumbers();
+      setPhoneNumbers(numbers);
+    } catch {
+      // Phone numbers may not be available, ignore error
+    }
+  };
+
+  // Create a map of agent ID to phone number
+  const agentPhoneMap = new Map<string, PhoneNumberInfo>();
+  phoneNumbers.forEach((pn) => {
+    if (pn.assigned_agent_id) {
+      agentPhoneMap.set(pn.assigned_agent_id, pn);
+    }
+  });
 
   const handleCreateAgent = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,6 +132,7 @@ export default function AgentsPage() {
             <AgentCard
               key={agent.id}
               agent={agent}
+              phoneNumber={agentPhoneMap.get(agent.id)}
               onDelete={() => handleDeleteAgent(agent.id)}
               isAdmin={isAdmin}
             />
@@ -172,10 +199,12 @@ export default function AgentsPage() {
 
 function AgentCard({
   agent,
+  phoneNumber,
   onDelete,
   isAdmin,
 }: {
   agent: Agent;
+  phoneNumber?: PhoneNumberInfo;
   onDelete: () => void;
   isAdmin: boolean;
 }) {
@@ -212,6 +241,23 @@ function AgentCard({
       </CardHeader>
       <CardContent>
         <div className="space-y-2 text-sm">
+          <div className="flex justify-between items-center">
+            <span className="text-muted-foreground">Phone Number</span>
+            {phoneNumber ? (
+              <a
+                href={`/phone-numbers/${phoneNumber.id}`}
+                className="flex items-center gap-1.5 font-mono text-xs hover:text-primary"
+              >
+                <PhoneIcon className="h-3 w-3 text-green-600" />
+                {phoneNumber.phone_number}
+              </a>
+            ) : (
+              <span className="flex items-center gap-1.5 text-muted-foreground text-xs">
+                <PhoneOffIcon className="h-3 w-3" />
+                Not assigned
+              </span>
+            )}
+          </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Model</span>
             <span>{agent.llm_model}</span>
@@ -258,6 +304,22 @@ function TrashIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+    </svg>
+  );
+}
+
+function PhoneIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+    </svg>
+  );
+}
+
+function PhoneOffIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
     </svg>
   );
 }

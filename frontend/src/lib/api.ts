@@ -196,6 +196,21 @@ class ApiClient {
     return response.data;
   }
 
+  async getConversationAudioBlob(conversationId: string): Promise<string | null> {
+    try {
+      const response = await this.client.get(
+        `/calls/conversation/${conversationId}/audio`,
+        { responseType: "blob" }
+      );
+      // Create a blob URL for the audio
+      const blob = new Blob([response.data], { type: "audio/mpeg" });
+      return URL.createObjectURL(blob);
+    } catch (error) {
+      console.error("Failed to fetch audio:", error);
+      return null;
+    }
+  }
+
   // Phone numbers endpoints
   async getPhoneNumbers() {
     const response = await this.client.get("/phone-numbers");

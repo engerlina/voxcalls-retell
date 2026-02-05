@@ -246,11 +246,48 @@ class ElevenLabsService:
         return await self._request("GET", f"/conversations/{conversation_id}")
 
     async def get_conversation_audio(self, conversation_id: str) -> str:
-        """Get signed URL for conversation audio."""
-        result = await self._request(
-            "GET", f"/conversations/{conversation_id}/audio"
-        )
-        return result.get("url", "")
+        """
+        Get signed URL for conversation audio.
+
+        The ElevenLabs API returns a JSON response with the audio URL.
+        """
+        url = f"{self.BASE_URL}/conversations/{conversation_id}/audio"
+        logger.info(f"Fetching audio URL from: {url}")
+
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                url,
+                headers=self.headers,
+                timeout=30.0,
+                follow_redirects=False,  # Don't follow redirects, we want the URL
+            )
+
+            logger.info(f"Audio response status: {response.status_code}")
+            logger.info(f"Audio response headers: {dict(response.headers)}")
+
+            # If it's a redirect, return the redirect URL
+            if response.status_code in (301, 302, 303, 307, 308):
+                redirect_url = response.headers.get("location", "")
+                logger.info(f"Audio redirect URL: {redirect_url}")
+                return redirect_url
+
+            # If successful JSON response
+            if response.status_code == 200:
+                content_type = response.headers.get("content-type", "")
+                logger.info(f"Audio content-type: {content_type}")
+
+                if "application/json" in content_type:
+                    data = response.json()
+                    logger.info(f"Audio JSON response: {data}")
+                    return data.get("audio_url") or data.get("url") or ""
+
+                # If it's audio data directly, we can't use it as a URL
+                # In this case, we'd need to proxy the audio
+                logger.warning(f"Audio endpoint returned non-JSON: {content_type}")
+                return ""
+
+            logger.error(f"Audio fetch failed: {response.status_code} - {response.text}")
+            return ""
 
     # =========================================================================
     # Phone Numbers

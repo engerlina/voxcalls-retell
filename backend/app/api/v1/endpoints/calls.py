@@ -140,6 +140,10 @@ async def get_conversation_details(
     elevenlabs = ElevenLabsService()
     try:
         conversation = await elevenlabs.get_conversation(conversation_id)
+        logger.info(f"Conversation keys: {list(conversation.keys())}")
+        # Check if audio_url is already in the response
+        if conversation.get("audio_url"):
+            logger.info(f"Audio URL already in conversation response")
     except Exception as e:
         logger.error(f"Failed to fetch conversation {conversation_id}: {e}")
         raise HTTPException(
@@ -163,11 +167,71 @@ async def get_conversation_details(
     # Get audio URL if available
     try:
         audio_url = await elevenlabs.get_conversation_audio(conversation_id)
-        conversation["audio_url"] = audio_url
-    except Exception:
+        logger.info(f"Audio URL for {conversation_id}: {audio_url[:100] if audio_url else 'None'}...")
+        conversation["audio_url"] = audio_url if audio_url else None
+    except Exception as e:
+        logger.error(f"Failed to get audio URL for {conversation_id}: {e}")
         conversation["audio_url"] = None
 
     return conversation
+
+
+@router.get("/conversation/{conversation_id}/audio")
+async def get_conversation_audio(
+    conversation_id: str,
+    current_user: CurrentUser,
+    db: DbSession,
+):
+    """
+    Proxy audio from ElevenLabs.
+
+    Streams the audio directly through our backend to avoid CORS issues.
+    """
+    import httpx
+    from fastapi.responses import StreamingResponse
+
+    # Verify user has access
+    result = await db.execute(
+        select(models.Agent).where(
+            models.Agent.tenant_id == current_user.tenant_id,
+            models.Agent.elevenlabs_agent_id.isnot(None),
+        )
+    )
+    agents = result.scalars().all()
+    agent_ids = {a.elevenlabs_agent_id for a in agents}
+
+    if not agent_ids:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No agents found",
+        )
+
+    # Fetch audio from ElevenLabs
+    elevenlabs = ElevenLabsService()
+    audio_url = f"{elevenlabs.BASE_URL}/conversations/{conversation_id}/audio"
+
+    async def stream_audio():
+        async with httpx.AsyncClient() as client:
+            async with client.stream(
+                "GET",
+                audio_url,
+                headers={"xi-api-key": elevenlabs.api_key},
+                timeout=60.0,
+            ) as response:
+                if response.status_code != 200:
+                    logger.error(f"Failed to stream audio: {response.status_code}")
+                    return
+                async for chunk in response.aiter_bytes():
+                    yield chunk
+
+    return StreamingResponse(
+        stream_audio(),
+        media_type="audio/mpeg",
+        headers={
+            "Accept-Ranges": "bytes",
+            "Content-Disposition": f'inline; filename="{conversation_id}.mp3"',
+        },
+    )
 
 
 @router.get("/{call_id}", response_model=CallDetailResponse)

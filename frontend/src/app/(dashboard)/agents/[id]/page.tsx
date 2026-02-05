@@ -534,10 +534,7 @@ export default function AgentConfigPage() {
                       className="flex items-center justify-between rounded-lg border bg-muted/30 px-3 py-2"
                     >
                       <div className="flex items-center gap-3">
-                        <span
-                          className={`fi fi-${langInfo.flagCode} rounded-sm`}
-                          style={{ width: "20px", height: "15px" }}
-                        />
+                        <span className={`fi fi-${langInfo.flagCode} text-base rounded-sm`} />
                         <span className="font-medium">{langInfo.label}</span>
                         {lang.isDefault && (
                           <span className="rounded bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
@@ -835,10 +832,7 @@ export default function AgentConfigPage() {
                       className="flex w-full items-center gap-3 rounded-lg border px-3 py-2 hover:bg-muted/50"
                       onClick={() => addLanguage(lang.value)}
                     >
-                      <span
-                        className={`fi fi-${lang.flagCode} rounded-sm`}
-                        style={{ width: "20px", height: "15px" }}
-                      />
+                      <span className={`fi fi-${lang.flagCode} text-base rounded-sm`} />
                       <span className="font-medium">{lang.label}</span>
                     </button>
                   )

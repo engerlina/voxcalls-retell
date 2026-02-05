@@ -74,12 +74,42 @@ Object.entries(COUNTRY_DATA).forEach(([iso, data]) => {
 interface CountryDisplayProps {
   /** ISO country code (e.g., "AU") or dial code (e.g., "+61") */
   countryCode: string | null | undefined;
+  /** Full phone number (e.g., "+61341501500") - used as fallback to derive country */
+  phoneNumber?: string | null;
   /** Whether to show the dial code text alongside the flag */
   showDialCode?: boolean;
   /** Size of the flag: "sm" (12px), "md" (16px), "lg" (20px) */
   size?: "sm" | "md" | "lg";
   /** Additional CSS classes */
   className?: string;
+}
+
+/**
+ * Extracts country ISO code from an E.164 phone number.
+ * Tries progressively longer dial code prefixes to find the best match.
+ */
+function extractCountryFromPhoneNumber(phoneNumber: string): string | null {
+  if (!phoneNumber) return null;
+
+  // Remove any non-digit characters except leading +
+  const cleaned = phoneNumber.startsWith("+")
+    ? "+" + phoneNumber.slice(1).replace(/\D/g, "")
+    : phoneNumber.replace(/\D/g, "");
+
+  if (!cleaned.startsWith("+") || cleaned.length < 2) return null;
+
+  const digits = cleaned.slice(1); // Remove the +
+
+  // Try matching dial codes from longest (4 digits) to shortest (1 digit)
+  // Most dial codes are 1-3 digits, but some are 4
+  for (let len = Math.min(4, digits.length); len >= 1; len--) {
+    const prefix = digits.slice(0, len);
+    if (DIAL_CODE_TO_ISO[prefix]) {
+      return DIAL_CODE_TO_ISO[prefix];
+    }
+  }
+
+  return null;
 }
 
 /**
@@ -122,18 +152,24 @@ function normalizeToIso(input: string): string | null {
 
 export function CountryDisplay({
   countryCode,
+  phoneNumber,
   showDialCode = true,
   size = "md",
   className = "",
 }: CountryDisplayProps) {
-  if (!countryCode) {
-    return <span className={className}>Unknown</span>;
+  // Try to get ISO code from countryCode first, then fall back to extracting from phoneNumber
+  let isoCode = countryCode ? normalizeToIso(countryCode) : null;
+
+  // If countryCode didn't resolve, try extracting from the full phone number
+  if (!isoCode && phoneNumber) {
+    isoCode = extractCountryFromPhoneNumber(phoneNumber);
   }
 
-  const isoCode = normalizeToIso(countryCode);
-
   if (!isoCode) {
-    // Fallback: just show what we have
+    // If we still can't resolve, show "Unknown" or the raw countryCode
+    if (!countryCode) {
+      return <span className={className}>Unknown</span>;
+    }
     return <span className={className}>{countryCode}</span>;
   }
 
@@ -146,10 +182,10 @@ export function CountryDisplay({
     lg: "text-base",
   };
 
-  const flagSizeStyles = {
-    sm: { width: "16px", height: "12px" },
-    md: { width: "20px", height: "15px" },
-    lg: { width: "24px", height: "18px" },
+  const flagSizeClasses = {
+    sm: "text-sm",
+    md: "text-base",
+    lg: "text-lg",
   };
 
   return (
@@ -158,12 +194,7 @@ export function CountryDisplay({
       title={countryInfo?.name}
     >
       <span
-        className={`fi fi-${flagCode} rounded-[2px]`}
-        style={{
-          ...flagSizeStyles[size],
-          display: "inline-block",
-          backgroundSize: "cover",
-        }}
+        className={`fi fi-${flagCode} ${flagSizeClasses[size]} rounded-[2px]`}
         aria-label={countryInfo?.name}
       />
       {showDialCode && countryInfo && (
