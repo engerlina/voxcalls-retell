@@ -1,9 +1,10 @@
 """
 Application configuration using Pydantic Settings.
 """
+import json
 from typing import List
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import AnyHttpUrl
+from pydantic import AnyHttpUrl, field_validator
 
 
 class Settings(BaseSettings):
@@ -62,6 +63,23 @@ class Settings(BaseSettings):
         "http://localhost:3001",
         "https://voxcalls-retell.vercel.app",
     ]
+
+    @field_validator("CORS_ORIGINS", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, v):
+        """Parse CORS_ORIGINS from various formats (JSON string, comma-separated, or list)."""
+        if isinstance(v, list):
+            return v
+        if isinstance(v, str):
+            # Try JSON parsing first (e.g., '["http://localhost:3000"]')
+            if v.startswith("["):
+                try:
+                    return json.loads(v)
+                except json.JSONDecodeError:
+                    pass
+            # Fall back to comma-separated
+            return [origin.strip() for origin in v.split(",") if origin.strip()]
+        return v
 
     @property
     def is_production(self) -> bool:

@@ -9,10 +9,15 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import select, text
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
 
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
+
+# Log CORS configuration on startup
+logger.info(f"CORS origins configured: {settings.CORS_ORIGINS}")
 from app.core.security import get_password_hash
 from app.db.session import engine, AsyncSessionLocal
 from app.db.models import Base, User
@@ -93,7 +98,62 @@ app = FastAPI(
     redoc_url="/api/redoc" if settings.ENVIRONMENT != "production" else None,
 )
 
-# CORS middleware
+# Helper function to check if origin is allowed
+def is_origin_allowed(origin: str | None) -> bool:
+    """Check if the origin is in the allowed CORS origins list."""
+    if not origin:
+        return False
+    return origin in settings.CORS_ORIGINS or "*" in settings.CORS_ORIGINS
+
+
+# Helper function to add CORS headers to a response
+def add_cors_headers(response: Response, origin: str) -> Response:
+    """Add CORS headers to a response."""
+    response.headers["Access-Control-Allow-Origin"] = origin
+    response.headers["Access-Control-Allow-Credentials"] = "true"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type, Accept, Origin, X-Requested-With"
+    response.headers["Access-Control-Max-Age"] = "600"
+    return response
+
+
+# Custom middleware to ensure CORS headers on ALL responses including errors
+class CORSErrorMiddleware(BaseHTTPMiddleware):
+    """Ensure CORS headers are added to all responses, including error responses."""
+
+    async def dispatch(self, request: Request, call_next) -> Response:
+        origin = request.headers.get("origin")
+
+        # Log CORS request for debugging
+        if origin:
+            logger.debug(f"CORS request from origin: {origin}, method: {request.method}, path: {request.url.path}")
+
+        # Handle preflight OPTIONS requests explicitly
+        if request.method == "OPTIONS":
+            response = Response(status_code=200)
+            if is_origin_allowed(origin):
+                add_cors_headers(response, origin)
+            return response
+
+        # Process the request
+        try:
+            response = await call_next(request)
+        except Exception as exc:
+            logger.error(f"Unhandled exception in middleware: {exc}")
+            logger.error(traceback.format_exc())
+            response = JSONResponse(
+                status_code=500,
+                content={"detail": f"Internal server error: {str(exc)}"},
+            )
+
+        # ALWAYS add CORS headers to response if origin is allowed
+        if is_origin_allowed(origin):
+            add_cors_headers(response, origin)
+
+        return response
+
+
+# CORS middleware (FastAPI's built-in) - added FIRST so it processes LAST
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
@@ -101,6 +161,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Add our custom CORS middleware LAST (so it processes FIRST, before any other middleware)
+app.add_middleware(CORSErrorMiddleware)
 
 
 # Global exception handler to ensure errors return proper JSON responses
